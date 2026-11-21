@@ -1,10 +1,11 @@
 import { v } from "convex/values";
 import { mutation, query, internalMutation, internalQuery, type MutationCtx } from "./_generated/server";
-import { entry, profile, settings, setup, turn, analysis } from "./validators";
-import { assessmentSchema, defaultSettings, setupSchema } from "../lib/domain";
+import { entry, profile, settings, setup, turn, analysis, resumeProfile } from "./validators";
+import { assessmentSchema, defaultProfile, defaultSettings, setupSchema, type Profile } from "../lib/domain";
 
 import { ownerOf } from "./identity";
 import { recordUsage } from "./admin";
+import { mergeResumeProfile, profileFieldLimit } from "../lib/resume-profile";
 
 const session = v.object({ id: v.id("interviewSessions"), created: v.number(), setup, turns: v.array(turn) });
 export const workspace = query({
@@ -27,13 +28,21 @@ export const workspace = query({
 });
 
 export const saveProfile = mutation({
-  args: { value: profile }, returns: v.null(),
-  handler: async (ctx, { value }) => {
+  args: { value: profile, changed: v.optional(v.array(v.string())) }, returns: v.null(),
+  handler: async (ctx, { value, changed }) => {
     const owner = await ownerOf(ctx);
-    if (Object.values(value).some(field => field.length > 4000)) throw new Error("Profile fields may contain at most 4,000 characters.");
+    if (Object.values(value).some(field => (field?.length ?? 0) > profileFieldLimit)) throw new Error("Profile fields may contain at most 4,000 characters.");
     const row = await ctx.db.query("profiles").withIndex("by_owner", q => q.eq("owner", owner)).unique();
-    if (row) await ctx.db.patch("profiles", row._id, { value });
-    else await ctx.db.insert("profiles", { owner, value });
+    const next = changed ? { ...(row?.value ?? defaultProfile) } : value;
+    if (changed) {
+      for (const field of changed) {
+        if (!Object.hasOwn(defaultProfile, field)) throw new Error("Unknown profile field.");
+        const key = field as keyof Profile;
+        next[key] = value[key] ?? "";
+      }
+    }
+    if (row) await ctx.db.patch("profiles", row._id, { value: next });
+    else await ctx.db.insert("profiles", { owner, value: next });
     return null;
   },
 });
@@ -107,10 +116,10 @@ export const writeDocument = internalMutation({
   args: {
     owner: v.string(), kind: v.union(v.literal("resume"), v.literal("job")), title: v.string(),
     organization: v.optional(v.string()), text: v.string(), storageId: v.optional(v.id("_storage")),
-    analysis: v.optional(analysis), replace: v.optional(v.id("documents")),
+    analysis: v.optional(analysis), replace: v.optional(v.id("documents")), extractedProfile: v.optional(resumeProfile),
     chunks: v.array(v.object({ text: v.string(), embedding: v.array(v.float64()) })),
-  }, returns: v.id("documents"),
-  handler: async (ctx, { replace, chunks, ...document }) => {
+  }, returns: v.object({ id: v.id("documents"), profileUpdated: v.boolean() }),
+  handler: async (ctx, { replace, chunks, extractedProfile, ...document }) => {
     let storageId = document.storageId;
     if (replace) {
       const old = await ctx.db.get("documents", replace);
@@ -122,7 +131,18 @@ export const writeDocument = internalMutation({
     if (rows.length >= 30) throw new Error("Delete an existing document to upload another.");
     const id = await ctx.db.insert("documents", { ...document, storageId });
     for (const chunk of chunks) await ctx.db.insert("knowledgeChunks", { ...chunk, owner: document.owner, document: id, model: "text-embedding-3-small" });
-    return id;
+    let profileUpdated = false;
+    if (document.kind === "resume" && extractedProfile) {
+      const row = await ctx.db.query("profiles").withIndex("by_owner", q => q.eq("owner", document.owner)).unique();
+      const next = mergeResumeProfile(row?.value, extractedProfile);
+      const previous = row?.value ?? defaultProfile;
+      profileUpdated = (Object.keys(defaultProfile) as (keyof Profile)[]).some(field => (previous[field] ?? "") !== (next[field] ?? ""));
+      if (profileUpdated) {
+        if (row) await ctx.db.patch("profiles", row._id, { value: next });
+        else await ctx.db.insert("profiles", { owner: document.owner, value: next });
+      }
+    }
+    return { id, profileUpdated };
   },
 });
 export const context = internalQuery({

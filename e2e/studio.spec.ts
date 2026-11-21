@@ -61,3 +61,17 @@ test("demo documents and job analysis work without cloud credentials", async ({ 
   await page.locator("summary").getByText("Geospatial Analyst").click();
   await expect(page.getByRole("heading", { name: "skills", exact: true })).toBeVisible();
 });
+
+test("light is the default and the studio keeps an explicit theme choice", async ({ page }) => {
+  await page.goto("/");
+  const root = page.locator("html");
+  await expect(root).toHaveCSS("color-scheme", "light");
+  await page.getByRole("link", { name: "Start practicing" }).click();
+  await expect(root).toHaveAttribute("data-theme", "light");
+  await page.getByRole("button", { name: "Switch to dark theme" }).click();
+  await expect(root).toHaveAttribute("data-theme", "dark");
+  await page.reload();
+  await expect(root).toHaveAttribute("data-theme", "dark");
+  await page.getByRole("button", { name: "Switch to light theme" }).click();
+  await expect(root).toHaveAttribute("data-theme", "light");
+});

@@ -9,6 +9,7 @@ const authenticate = clerkMiddleware(async (auth, request) => {
   },
 });
 export default function proxy(request: NextRequest, event: NextFetchEvent) {
-  return process.env.NEXT_PUBLIC_SNAPCUE_MODE === "cloud" ? authenticate(request, event) : NextResponse.next();
+  if (request.nextUrl.pathname === "/" || process.env.NEXT_PUBLIC_SNAPCUE_MODE !== "cloud") return NextResponse.next();
+  return authenticate(request, event);
 }
 export const config = { matcher: ["/((?!_next|.*\\.[\\w]+$).*)", "/api/(.*)", "/__clerk/:path*"] };

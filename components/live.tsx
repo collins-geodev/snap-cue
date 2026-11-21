@@ -4,7 +4,7 @@ import { AudioLines, Mic, Pause, Play, ShieldCheck, Sparkles, Square } from "luc
 import { toast } from "sonner";
 import { PageHeading } from "./page-heading";
 import { Button } from "./ui/button";
-import { Wave } from "./hero";
+import { Wave } from "./wave";
 import { sampleAnswer, SourceSelect, streamAnswer } from "./practice";
 import type { Selection, Workspace } from "./workspace-data";
 

@@ -20,9 +20,9 @@ export type Turn = { question: string; answer: string; assessment: Assessment };
 export type Session = Setup & { id: string; created: number; turns: Turn[] };
 export type Entry = { id: string; kind: "resume" | "job"; title: string; organization?: string; text: string; created: number; analysis?: JobAnalysis };
 export type Settings = { language: string; theme: "dark" | "light"; length: "brief" | "standard"; model: string; retainTranscript: boolean; notifications: boolean; microphone: string };
-export type Profile = { summary: string; skills: string; certifications: string; experience: string; projects: string; achievements: string };
-export const defaultSettings: Settings = { language: "en", theme: "dark", length: "brief", model: "gpt-5-mini", retainTranscript: false, notifications: true, microphone: "" };
-export const defaultProfile: Profile = { summary: "", skills: "", certifications: "", experience: "", projects: "", achievements: "" };
+export type Profile = { summary: string; skills: string; certifications: string; experience: string; projects: string; achievements: string; education?: string; languages?: string };
+export const defaultSettings: Settings = { language: "en", theme: "light", length: "brief", model: "gpt-5-mini", retainTranscript: false, notifications: true, microphone: "" };
+export const defaultProfile: Profile = { summary: "", skills: "", certifications: "", experience: "", projects: "", achievements: "", education: "", languages: "" };
 export const maxFile = 4 * 1024 * 1024;
 export function chunkText(input: string) {
   const words = input.replaceAll(/\s+/g, " ").trim().split(" ").filter(Boolean);

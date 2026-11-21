@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { UserButton } from "@clerk/nextjs";
 import { motion, MotionConfig } from "motion/react";
 import { AudioLines, BriefcaseBusiness, ChevronDown, CircleHelp, FileText, History, LayoutDashboard, Menu, Mic, Moon, Settings as SettingsIcon, Sparkles, Sun, X } from "lucide-react";
@@ -8,10 +9,6 @@ import { toast } from "sonner";
 import { mode } from "@/lib/domain";
 import { Brand } from "./brand";
 import { CloudWorkspace, DemoWorkspace, type Workspace } from "./workspace-data";
-import { Dashboard, HistoryView } from "./dashboard";
-import { Documents, Preferences } from "./documents";
-import { Practice, AnswerAssistant } from "./practice";
-import { Live } from "./live";
 
 const navigation = [
   { id: "dashboard", text: "Overview", icon: LayoutDashboard },
@@ -24,6 +21,15 @@ const navigation = [
   { id: "settings", text: "Settings", icon: SettingsIcon },
 ] as const;
 export type View = typeof navigation[number]["id"];
+const loading = () => <p className="loading" role="status">Loading section…</p>;
+const Dashboard = dynamic(() => import("./dashboard").then(module => module.Dashboard), { loading });
+const HistoryView = dynamic(() => import("./dashboard").then(module => module.HistoryView), { loading });
+const Documents = dynamic(() => import("./documents").then(module => module.Documents), { loading });
+const Preferences = dynamic(() => import("./documents").then(module => module.Preferences), { loading });
+const Practice = dynamic(() => import("./practice").then(module => module.Practice), { loading });
+const AnswerAssistant = dynamic(() => import("./practice").then(module => module.AnswerAssistant), { loading });
+const Live = dynamic(() => import("./live").then(module => module.Live), { loading });
+
 const views = {
   dashboard: Dashboard,
   profile: ({ data }: { data: Workspace }) => <Documents data={data} kind="resume" />,
@@ -65,5 +71,5 @@ function Content({ data, view }: { data: Workspace; view: View }) {
 }
 export function Studio({ view }: { view: View }) {
   const Provider = mode === "cloud" ? CloudWorkspace : DemoWorkspace;
-  return <Provider>{data => <Content data={data} view={view}/>}</Provider>;
+  return <Provider loadTranscripts={view === "history" || view === "settings"}>{data => <Content data={data} view={view}/>}</Provider>;
 }

@@ -2,7 +2,10 @@ import { v } from "convex/values";
 export const category = v.union(v.literal("Behavioral"), v.literal("Technical"), v.literal("Scenario"), v.literal("Leadership"), v.literal("HR"), v.literal("Role-specific"));
 export const difficulty = v.union(v.literal("Beginner"), v.literal("Intermediate"), v.literal("Advanced"), v.literal("Executive"));
 export const setup = v.object({ category, difficulty, role: v.string(), organization: v.string(), count: v.number(), minutes: v.number() });
-export const profile = v.object({ summary: v.string(), skills: v.string(), certifications: v.string(), experience: v.string(), projects: v.string(), achievements: v.string() });
+export const profile = v.object({ summary: v.string(), skills: v.string(), certifications: v.string(), experience: v.string(), projects: v.string(), achievements: v.string(), education: v.optional(v.string()), languages: v.optional(v.string()) });
+const snippets = v.array(v.string());
+export const resumeProfile = v.object({ summary: v.string(), skills: snippets, certifications: snippets, experience: snippets, projects: snippets, achievements: snippets, education: snippets, languages: snippets });
+export const profileImportStatus = v.union(v.literal("updated"), v.literal("no_changes"), v.literal("unavailable"));
 export const settings = v.object({
   language: v.string(), theme: v.union(v.literal("dark"), v.literal("light")),
   length: v.union(v.literal("brief"), v.literal("standard")), model: v.string(),

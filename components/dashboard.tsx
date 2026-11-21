@@ -1,7 +1,9 @@
 "use client";
 import Link from "next/link";
+import dynamic from "next/dynamic";
+import { download } from "@/lib/download";
 import { Activity, ArrowRight, AudioLines, BriefcaseBusiness, ChartNoAxesCombined, ChevronRight, Clock3, Mic, Target } from "lucide-react";
-import { Area, AreaChart, CartesianGrid, ResponsiveContainer, XAxis, YAxis, Tooltip } from "recharts";
+
 import { useState } from "react";
 import type { Session } from "@/lib/domain";
 import type { Workspace } from "./workspace-data";
@@ -9,14 +11,11 @@ import { PageHeading } from "./page-heading";
 import { Button } from "./ui/button";
 import { toast } from "sonner";
 
-const date = (stamp: number) => new Intl.DateTimeFormat("en", { month: "short", day: "numeric", timeZone: "UTC" }).format(stamp);
+const PerformanceChart = dynamic(() => import("./performance-chart").then(module => module.PerformanceChart), { ssr: false });
+const dates = new Intl.DateTimeFormat("en", { month: "short", day: "numeric", timeZone: "UTC" });
+const date = (stamp: number) => dates.format(stamp);
 const score = (row: Session) => Math.round(row.turns.reduce((sum, turn) => sum + turn.assessment.score, 0) / Math.max(row.turns.length, 1));
-export function download(name: string, value: unknown) {
-  const url = URL.createObjectURL(new Blob([JSON.stringify(value, null, 2)], { type: "application/json" }));
-  const link = document.createElement("a");
-  link.href = url; link.download = name; link.click();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
-}
+
 export function Dashboard({ data }: { data: Workspace }) {
   const { sessions } = data;
   const average = sessions.length ? Math.round(sessions.reduce((sum, row) => sum + score(row), 0) / sessions.length) : null;
@@ -33,7 +32,7 @@ export function Dashboard({ data }: { data: Workspace }) {
     </div>
     <div className="dashboard-grid">
       <section className="card chart-card"><div className="card-title"><div><h2>Practice performance</h2><p>Scores and communication across sessions</p></div><Activity size={19}/></div>
-        {trend.length ? <div className="chart" role="img" aria-label={trend.map(row => `${row.name}: score ${row.Score}, communication ${row.Communication}`).join("; ")}><ResponsiveContainer width="100%" height={232}><AreaChart data={trend} margin={{ left: -19, right: 13, top: 8, bottom: 4 }}><defs><linearGradient id="score-fill" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stopColor="#8276fa" stopOpacity={0.35}/><stop offset="100%" stopColor="#8276fa" stopOpacity={0.02}/></linearGradient></defs><CartesianGrid stroke="var(--line)" vertical={false}/><XAxis dataKey="name" tick={{ fontSize: 11, fill: "var(--muted)" }} axisLine={false} tickLine={false}/><YAxis domain={[0, 100]} tick={{ fontSize: 11, fill: "var(--muted)" }} axisLine={false} tickLine={false}/><Tooltip contentStyle={{ background: "var(--surface)", borderColor: "var(--line)", borderRadius: "10px" }}/><Area type="monotone" dataKey="Score" stroke="#8b7ffd" strokeWidth={3} fill="url(#score-fill)"/><Area type="monotone" dataKey="Communication" stroke="#3dd4b4" strokeWidth={2} fill="transparent"/></AreaChart></ResponsiveContainer></div> : <p className="empty">Complete a practice answer to see your progress here.</p>}
+        {trend.length ? <div className="chart" role="img" aria-label={trend.map(row => `${row.name}: score ${row.Score}, communication ${row.Communication}`).join("; ")}><PerformanceChart trend={trend}/></div> : <p className="empty">Complete a practice answer to see your progress here.</p>}
       </section>
       <section className="card prep-card"><div className="card-title"><div><h2>Upcoming preparation</h2><p>Focus on the role you’re pursuing</p></div><BriefcaseBusiness size={18}/></div><div className="prep-callout"><span className="stat-icon violet"><BriefcaseBusiness size={21}/></span><h3>{job?.title ?? "Add a target role"}</h3><p>{job?.organization || "Save a job description for tailored practice."}</p><Button asChild variant="secondary"><Link href="/studio/jobs">{job ? "Open job intelligence" : "Add job description"} <ArrowRight size={15}/></Link></Button></div></section>
       <section className="card recent"><div className="card-title"><div><h2>Recent interviews</h2><p>Return to your practice and feedback</p></div><Link href="/studio/history">View history <ChevronRight size={15}/></Link></div>{sessions.slice(0, 4).map(row => <Link className="session-row" key={row.id} href="/studio/history"><span className="stat-icon violet"><AudioLines size={18}/></span><span><strong>{row.role}</strong><small>{row.category} · {date(row.created)}</small></span><span className="score-pill">{score(row)}%</span></Link>)}{!sessions.length && <p className="empty">Your saved practice interviews will appear here.</p>}</section>

@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { PageHeading } from "./page-heading";
 import { ProfilePhoto } from "./profile-photo";
 import { Button } from "./ui/button";
-import { download } from "./dashboard";
+import { download } from "@/lib/download";
 import type { Workspace } from "./workspace-data";
 import type { Entry, Profile } from "@/lib/domain";
 
@@ -20,9 +20,21 @@ export function Documents({ data, kind }: { data: Workspace; kind: Entry["kind"]
     const node = event.currentTarget;
     const form = new FormData(node);
     form.set("kind", kind);
+    const file = form.get("file");
+    if (kind === "resume" && file instanceof File && file.size && !String(form.get("title") ?? "").trim()) {
+      form.set("title", file.name.replace(/\.[^.]+$/, "").slice(0, 160) || "My CV");
+    }
     if (edit) form.set("replace", edit.id);
     setBusy(true);
-    try { await data.saveDocument(form); node.reset(); setEdit(null); toast.success(`${label} saved`); }
+    try {
+      const { profileImport } = await data.saveDocument(form);
+      node.reset();
+      setEdit(null);
+      if (profileImport === "updated") toast.success("CV saved and professional details updated.");
+      else if (profileImport === "unavailable") toast.warning("CV saved. Professional details could not be imported.");
+      else if (profileImport === "no_changes") toast.success("CV saved. No new professional details found.");
+      else toast.success(`${label} saved`);
+    }
     catch (error) { toast.error(error instanceof Error ? error.message : "Could not save the document."); }
     finally { setBusy(false); }
   }
@@ -31,7 +43,7 @@ export function Documents({ data, kind }: { data: Workspace; kind: Entry["kind"]
     <div className="content-grid"><section className="card stack">
       <div className="card-title"><div><h2>{edit ? "Edit" : "Add"} {label}</h2><p>{data.demo ? "Paste text or upload a TXT file in demo mode." : "Paste text or upload a PDF, DOCX or TXT file up to 4 MB."}</p></div><UploadCloud size={22}/></div>
       <form className="stack" onSubmit={submit} key={edit?.id ?? "new"}>
-        <label>{cloudJob ? "Position" : "Version name"}<input name="title" maxLength={160} defaultValue={edit?.title ?? ""} required placeholder={cloudJob ? "Geospatial Engineer" : "CV — data and analytics"}/></label>
+        <label>{cloudJob ? "Position" : "Version name"}<input name="title" maxLength={160} defaultValue={edit?.title ?? ""} required={cloudJob} placeholder={cloudJob ? "Geospatial Engineer" : "CV — data and analytics"}/></label>
         {cloudJob && <><label>Organization<input name="organization" maxLength={120} defaultValue={edit?.organization ?? ""} placeholder="Company name"/></label><label>CV for comparison<select name="resume"><option value="">Use any relevant saved CV</option>{data.entries.filter(row => row.kind === "resume").map(row => <option key={row.id} value={row.id}>{row.title}</option>)}</select></label></>}
         <label>Document file<input type="file" name="file" accept={data.demo ? ".txt" : ".pdf,.docx,.txt"}/></label>
         <label>{label} text<textarea name="text" rows={6} maxLength={55000} defaultValue={edit?.text ?? ""} placeholder={cloudJob ? "Paste the responsibilities and qualifications…" : "Paste your experience and qualifications…"}/></label>
@@ -45,18 +57,55 @@ export function Documents({ data, kind }: { data: Workspace; kind: Entry["kind"]
       {!rows.length && <p className="empty">Your saved {cloudJob ? "job descriptions" : "CVs"} will appear here.</p>}
     </section></div>
     {!cloudJob && !data.demo && <ProfilePhoto/>}
-    {!cloudJob && <ProfileEditor data={data}/>}
+    {!cloudJob && <ProfileEditor data={data} importing={busy}/>}
   </>;
 }
-function ProfileEditor({ data }: { data: Workspace }) {
+const profileFields = {
+  summary: "Professional summary", skills: "Skills", certifications: "Certifications",
+  experience: "Employment experience", projects: "Major projects", achievements: "Achievements",
+  education: "Education", languages: "Languages",
+} satisfies Record<keyof Profile, string>;
+
+function ProfileEditor({ data, importing }: { data: Workspace; importing: boolean }) {
   const [saving, setSaving] = useState(false);
-  const fields: Record<keyof Profile, string> = { summary: "Professional summary", skills: "Skills", certifications: "Certifications", experience: "Employment experience", projects: "Major projects", achievements: "Verified achievements" };
-  return <section className="card stack spaced"><div className="card-title"><div><h2>Professional details</h2><p>Add experience and achievements you can verify.</p></div></div><form className="stack" onSubmit={async event => {
+  const [draft, setDraft] = useState<Partial<Profile>>({});
+  const changed = Object.keys(draft) as (keyof Profile)[];
+  const fields = Object.keys(profileFields) as (keyof Profile)[];
+
+  async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const value = Object.fromEntries(new FormData(event.currentTarget)) as Profile;
     setSaving(true);
-    try { await data.saveProfile(value); toast.success("Profile saved"); } catch { toast.error("Could not save your profile"); } finally { setSaving(false); }
-  }}><div className="form-grid two">{(Object.keys(fields) as (keyof Profile)[]).map(key => <label key={key}>{fields[key]}<textarea name={key} rows={3} maxLength={4000} defaultValue={data.profile[key]}/></label>)}</div><div><Button disabled={saving}>{saving ? "Saving…" : "Save profile"}</Button></div></form></section>;
+    try {
+      await data.saveProfile({ ...data.profile, ...draft }, changed);
+      setDraft({});
+      toast.success("Profile saved");
+    } catch {
+      toast.error("Could not save your profile");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <section className="card stack spaced">
+      <div className="card-title"><div><h2>Professional details</h2>
+        <p>{data.demo ? "Add experience and achievements you can verify." : "CV uploads add supported details here. Review the imported information and edit it anytime."}</p>
+      </div></div>
+      <form className="stack" onSubmit={save}>
+        <div className="form-grid two">
+          {fields.map(field => (
+            <label key={field}>
+              {profileFields[field]}
+              <textarea name={field} rows={3} maxLength={4000} disabled={saving}
+                value={draft[field] ?? data.profile[field] ?? ""}
+                onChange={event => setDraft({ ...draft, [field]: event.target.value })}/>
+            </label>
+          ))}
+        </div>
+        <div><Button disabled={saving || importing || !changed.length}>{saving ? "Saving…" : "Save profile"}</Button></div>
+      </form>
+    </section>
+  );
 }
 function AccountSecurity() {
   const { openUserProfile, loaded } = useClerk();

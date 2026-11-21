@@ -12,9 +12,9 @@ export type Selection = { resume?: string; job?: string };
 export type Data = { profile: Profile; settings: Settings; entries: Entry[]; sessions: Session[]; transcripts: { id: string; created: number; text: string }[] };
 export type Workspace = Data & {
   demo: boolean; name: string;
-  saveProfile(value: Profile): Promise<void>; saveSettings(value: Settings): Promise<void>;
+  saveProfile(value: Profile, changed?: (keyof Profile)[]): Promise<void>; saveSettings(value: Settings): Promise<void>;
   setTheme(theme: Settings["theme"]): Promise<void>;
-  saveDocument(form: FormData): Promise<void>; removeDocument(id: string): Promise<void>;
+  saveDocument(form: FormData): Promise<{ profileImport?: "updated" | "no_changes" | "unavailable" }>; removeDocument(id: string): Promise<void>;
   question(config: Setup, previous: string[], selection: Selection): Promise<string>;
   assess(question: string, answer: string, config: Setup, selection: Selection): Promise<Assessment>;
   saveSession(config: Setup, turns: Turn[], id?: string): Promise<string>;
@@ -48,7 +48,11 @@ export function DemoWorkspace({ children }: { children: (data: Workspace) => Rea
   }
   return children({
     ...state, demo: true, name: "there",
-    async saveProfile(profile) { update({ profile }); },
+    async saveProfile(profile, changed) {
+      const next = changed ? { ...state.profile } : profile;
+      if (changed) for (const field of changed) next[field] = profile[field] ?? "";
+      update({ profile: next });
+    },
     async saveSettings(settings) { update({ settings }); },
     async setTheme(theme) { update({ settings: { ...state.settings, theme } }); },
     async saveDocument(form) {
@@ -67,6 +71,7 @@ export function DemoWorkspace({ children }: { children: (data: Workspace) => Rea
         questions: [demoQuestion("Role-specific", title, 0), demoQuestion("Technical", title, 0)],
       } : undefined;
       update({ entries: [{ id, kind, title, organization: String(form.get("organization") ?? ""), text, created: timestamp(), analysis }, ...state.entries.filter(item => item.id !== id)] });
+      return {};
     },
     async removeDocument(id) { update({ entries: state.entries.filter(item => item.id !== id) }); },
     async question(config, previous) { return demoQuestion(config.category, config.role, previous.length); },
@@ -84,11 +89,11 @@ export function DemoWorkspace({ children }: { children: (data: Workspace) => Rea
 }
 const id = <T extends string>(value: string) => value as GenericId<T>;
 const selected = ({ resume, job }: Selection) => ({ resume: resume ? id<"documents">(resume) : undefined, job: job ? id<"documents">(job) : undefined });
-function Connected({ children }: { children: (data: Workspace) => ReactNode }) {
+function Connected({ children, loadTranscripts }: { children: (data: Workspace) => ReactNode; loadTranscripts: boolean }) {
   const { user } = useUser();
   const router = useRouter();
   const data = useQuery(api.store.workspace);
-  const transcripts = useQuery(api.store.transcripts);
+  const transcripts = useQuery(api.store.transcripts, loadTranscripts ? {} : "skip");
   const saveProfile = useMutation(api.store.saveProfile);
   const saveSettings = useMutation(api.store.saveSettings);
   const setTheme = useMutation(api.store.setTheme);
@@ -99,16 +104,18 @@ function Connected({ children }: { children: (data: Workspace) => ReactNode }) {
   const retainLive = useMutation(api.store.retainLive);
   const question = useAction(api.intelligence.question);
   const evaluate = useAction(api.intelligence.evaluate);
-  if (!data || !transcripts) return <p className="loading" role="status">Loading your workspace…</p>;
+  if (!data || (loadTranscripts && !transcripts)) return <p className="loading" role="status">Loading your workspace…</p>;
   return children({
     demo: false, name: user?.firstName ?? "there",
     profile: data.profile ?? defaultProfile, settings: data.settings ?? defaultSettings,
-    entries: data.entries, sessions: data.sessions.map(row => ({ ...row.setup, id: row.id, created: row.created, turns: row.turns })), transcripts,
-    async saveProfile(value) { await saveProfile({ value }); }, async saveSettings(value) { await saveSettings({ value }); },
+    entries: data.entries, sessions: data.sessions.map(row => ({ ...row.setup, id: row.id, created: row.created, turns: row.turns })), transcripts: transcripts ?? [],
+    async saveProfile(value, changed) { await saveProfile({ value, changed }); }, async saveSettings(value) { await saveSettings({ value }); },
     async setTheme(theme) { await setTheme({ theme }); },
     async saveDocument(form) {
       const response = await fetch("/api/documents", { method: "POST", body: form });
-      if (!response.ok) throw new Error((await response.json()).error);
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error);
+      return result;
     },
     async removeDocument(value) { await removeDocument({ id: id<"documents">(value) }); },
     async question(setup, previous, selection) { return question({ setup, previous, ...selected(selection) }); },
@@ -125,11 +132,11 @@ function Connected({ children }: { children: (data: Workspace) => ReactNode }) {
     },
   });
 }
-export function CloudWorkspace({ children }: { children: (data: Workspace) => ReactNode }) {
+export function CloudWorkspace({ children, loadTranscripts }: { children: (data: Workspace) => ReactNode; loadTranscripts: boolean }) {
   const [client] = useState(() => {
     const url = process.env.NEXT_PUBLIC_CONVEX_URL;
     return url ? new ConvexReactClient(url) : null;
   });
   if (!client) return <p className="loading">Cloud workspace configuration is incomplete.</p>;
-  return <ConvexProviderWithClerk client={client} useAuth={useAuth}><AuthLoading><p className="loading">Connecting securely…</p></AuthLoading><Authenticated><Connected>{children}</Connected></Authenticated></ConvexProviderWithClerk>;
+  return <ConvexProviderWithClerk client={client} useAuth={useAuth}><AuthLoading><p className="loading">Connecting securely…</p></AuthLoading><Authenticated><Connected loadTranscripts={loadTranscripts}>{children}</Connected></Authenticated></ConvexProviderWithClerk>;
 }

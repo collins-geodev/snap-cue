@@ -46,6 +46,10 @@ test("ingested CV passages are retrieved only for their owner", async t => {
   const vector = [1, ...Array<number>(1535).fill(0)];
   const originalFetch = globalThis.fetch;
   const fetchMock = t.mock.fn(async (url: string, request: RequestInit) => {
+    if (url.endsWith("/responses")) {
+      const extraction = { summary: "I designed a geospatial quality assurance process.", skills: ["QGIS", "Kubernetes"], education: ["BSc Geography"], experience: ["I designed a geospatial quality assurance process."] };
+      return Response.json({ output: [{ content: [{ type: "output_text", text: JSON.stringify(extraction) }] }] });
+    }
     assert.match(url, /\/embeddings$/);
     const { input } = JSON.parse(String(request.body)) as { input: string[] };
     return Response.json({ data: input.map((_, index) => ({ index, embedding: vector })) });
@@ -55,15 +59,28 @@ test("ingested CV passages are retrieved only for their owner", async t => {
   const backend = convexTest(schema, modules);
   const alice = backend.withIdentity({ subject: "alice", tokenIdentifier: "test|alice" });
   const bob = backend.withIdentity({ subject: "bob", tokenIdentifier: "test|bob" });
-  const { id } = await alice.action(api.intelligence.ingest, { kind: "resume", title: "GIS CV", text: "I designed a geospatial quality assurance process." });
-  const result = await alice.action(api.intelligence.answerContext, { question: "How do you ensure data quality?", resume: id });
+  await alice.mutation(api.store.saveProfile, { value: { ...defaultProfile, summary: "My edited summary", skills: "Python" } });
+  const upload = { kind: "resume" as const, title: "GIS CV", text: "I designed a geospatial quality assurance process.\nQGIS\nBSc Geography" };
+  const { id, profileImport } = await alice.action(api.intelligence.ingest, upload);
+  assert.equal(profileImport, "updated");
+  assert.equal((await alice.action(api.intelligence.ingest, { ...upload, replace: id })).profileImport, "no_changes");
+  await alice.mutation(api.store.saveProfile, { value: { ...defaultProfile, summary: "Changed while importing" }, changed: ["summary"] });
+  const imported = (await alice.query(api.store.workspace, {})).profile;
+  assert.equal(imported?.summary, "Changed while importing");
+  assert.equal(imported?.skills, "Python\nQGIS");
+  assert.equal(imported?.education, "BSc Geography");
+  assert.equal((await bob.query(api.store.workspace, {})).profile, null);
+  const [stored] = (await alice.query(api.store.workspace, {})).entries;
+  assert.ok(stored);
+  const current = stored.id;
+  const result = await alice.action(api.intelligence.answerContext, { question: "How do you ensure data quality?", resume: current });
   assert.match(result.sources[0].label, /GIS CV/);
   assert.match(result.sources[0].text, /geospatial quality/);
   const calls = fetchMock.mock.callCount();
-  await assert.rejects(bob.action(api.intelligence.answerContext, { question: "Show another CV", resume: id }), /unavailable/);
+  await assert.rejects(bob.action(api.intelligence.answerContext, { question: "Show another CV", resume: current }), /unavailable/);
   assert.equal(fetchMock.mock.callCount(), calls);
-  await assert.rejects(bob.mutation(api.store.removeDocument, { id }), /unavailable/);
-  await alice.mutation(api.store.removeDocument, { id });
+  await assert.rejects(bob.mutation(api.store.removeDocument, { id: current }), /unavailable/);
+  await alice.mutation(api.store.removeDocument, { id: current });
   const afterDelete = await alice.action(api.intelligence.answerContext, { question: "How do you ensure data quality?" });
   assert.deepEqual(afterDelete.sources, []);
 });
