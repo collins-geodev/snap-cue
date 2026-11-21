@@ -7,6 +7,7 @@ import { defaultProfile, demoAssessment, type Setup } from "../lib/domain";
 
 const modules = {
   "./_generated/server.ts": () => import("../convex/_generated/server"),
+  "./admin.ts": () => import("../convex/admin"),
   "./store.ts": () => import("../convex/store"),
   "./intelligence.ts": () => import("../convex/intelligence"),
 };
@@ -65,4 +66,27 @@ test("ingested CV passages are retrieved only for their owner", async t => {
   await alice.mutation(api.store.removeDocument, { id });
   const afterDelete = await alice.action(api.intelligence.answerContext, { question: "How do you ensure data quality?" });
   assert.deepEqual(afterDelete.sources, []);
+});
+
+test("only the configured Clerk subject can read aggregate operations data", async t => {
+  const original = process.env.SNAPCUE_OWNER_SUBJECT;
+  t.after(() => {
+    if (original === undefined) delete process.env.SNAPCUE_OWNER_SUBJECT;
+    else process.env.SNAPCUE_OWNER_SUBJECT = original;
+  });
+  const backend = convexTest(schema, modules);
+  const member = backend.withIdentity({ subject: "member", tokenIdentifier: "test|member" });
+  const owner = backend.withIdentity({ subject: "owner", tokenIdentifier: "test|owner" });
+  delete process.env.SNAPCUE_OWNER_SUBJECT;
+  assert.equal(await owner.query(api.admin.overview, {}), null);
+  process.env.SNAPCUE_OWNER_SUBJECT = "owner";
+  assert.equal(await backend.query(api.admin.overview, {}), null);
+  assert.equal(await member.query(api.admin.overview, {}), null);
+  await member.mutation(api.store.quota, { kind: "ai" });
+  await member.mutation(api.store.quota, { kind: "speech" });
+  const interview = await member.mutation(api.store.saveSession, { setup, turns: [turn] });
+  await member.mutation(api.store.saveSession, { setup, turns: [turn], id: interview });
+  assert.deepEqual(await owner.query(api.admin.overview, {}), {
+    interviews: 1, aiRequests: 1, transcriptionRequests: 1, liveSessions: 0, activeUserDays: 1, activeToday: 1,
+  });
 });

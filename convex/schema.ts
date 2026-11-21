@@ -19,5 +19,10 @@ export default defineSchema({
   interviewSessions: defineTable({ owner: v.string(), setup, turns: v.array(turn) }).index("by_owner", ["owner"]),
   consentRecords: defineTable({ owner: v.string(), retain: v.boolean(), noticeVersion: v.literal("1") }).index("by_owner", ["owner"]),
   liveTranscripts: defineTable({ owner: v.string(), text: v.string() }).index("by_owner", ["owner"]),
+  dailyAdminUsage: defineTable({
+    day: v.string(), interviews: v.number(), aiRequests: v.number(), transcriptionRequests: v.number(),
+    liveSessions: v.number(), activeUserDays: v.number(),
+  }).index("by_day", ["day"]),
+  adminUsageActivity: defineTable({ owner: v.string(), day: v.string() }).index("by_owner", ["owner"]),
   usageEvents: defineTable({ owner: v.string(), kind: v.string(), timestamps: v.array(v.number()) }).index("by_owner_kind", ["owner", "kind"]),
 });

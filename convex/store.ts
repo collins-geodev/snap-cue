@@ -4,6 +4,7 @@ import { entry, profile, settings, setup, turn, analysis } from "./validators";
 import { assessmentSchema, setupSchema } from "../lib/domain";
 
 import { ownerOf } from "./identity";
+import { recordUsage } from "./admin";
 
 const session = v.object({ id: v.id("interviewSessions"), created: v.number(), setup, turns: v.array(turn) });
 export const workspace = query({
@@ -61,6 +62,7 @@ export const saveSession = mutation({
     }
     const rows = await ctx.db.query("interviewSessions").withIndex("by_owner", q => q.eq("owner", owner)).take(100);
     if (rows.length >= 100) throw new Error("Delete an older interview to save another.");
+    await recordUsage(ctx, owner, "interviews");
     return ctx.db.insert("interviewSessions", { owner, setup: config, turns: args.turns });
   },
 });
@@ -147,6 +149,9 @@ export const quota = mutation({
     timestamps.push(now);
     if (row) await ctx.db.patch("usageEvents", row._id, { timestamps });
     else await ctx.db.insert("usageEvents", { owner, kind, timestamps });
+    if (kind === "ai") await recordUsage(ctx, owner, "aiRequests");
+    if (kind === "speech") await recordUsage(ctx, owner, "transcriptionRequests");
+    if (kind === "live") await recordUsage(ctx, owner, "liveSessions");
     return null;
   },
 });
@@ -200,6 +205,8 @@ export const erase = mutation({
     }
     const events = await ctx.db.query("usageEvents").withIndex("by_owner_kind", q => q.eq("owner", owner)).take(5);
     for (const row of events) await ctx.db.delete("usageEvents", row._id);
+    const activity = await ctx.db.query("adminUsageActivity").withIndex("by_owner", q => q.eq("owner", owner)).unique();
+    if (activity) await ctx.db.delete("adminUsageActivity", activity._id);
     return null;
   },
 });

@@ -31,3 +31,7 @@ A preview key can create an isolated preview backend. Configure auth and OpenAI 
 After deploying, verify the production URL, HTTPS, account recovery and sign-in, deployment isolation, native audio behavior, and the signed-in AI workflows. Promote or release only after those checks pass.
 
 [Convex on Vercel](https://docs.convex.dev/production/hosting/vercel) · [Clerk and Convex](https://docs.convex.dev/auth/clerk) · [OpenAI speech models](https://developers.openai.com/api/docs/guides/transcription)
+
+## Owner dashboard
+
+The production dashboard is available at `/admin`. After the designated owner signs up and verifies their email in Clerk, copy that user’s ID and save it as `SNAPCUE_OWNER_SUBJECT` in production Convex. The server checks the authenticated Clerk subject on each aggregate query. Configure the owner account with MFA. The dashboard shows only aggregate usage, coarse service checks, and the Clerk account count.
