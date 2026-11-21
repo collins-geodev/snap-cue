@@ -4,6 +4,8 @@ import { notFound, redirect } from "next/navigation";
 import { api } from "@/convex/_generated/api";
 import { authenticatedClient } from "@/lib/server-auth";
 import { reviewAccessRequest } from "./access-actions";
+import { accessQueueSnapshot, pendingAccessQueue } from "@/lib/access-queue";
+import { AdminAccessBell } from "@/components/admin-access-bell";
 
 export const dynamic = "force-dynamic";
 
@@ -38,7 +40,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
   const [accounts, coaching, transcription, realtime, queue, feedback] = await Promise.all([
     clerkClient().then(client => client.users.getCount()).catch(() => null),
     modelStatus("gpt-5-mini"), modelStatus("gpt-transcribe"), modelStatus("gpt-live-transcribe"),
-    clerkClient().then(client => client.waitlistEntries.list({ status: "pending", orderBy: "+created_at", limit: 25 })).catch(() => null),
+    pendingAccessQueue().catch(() => null),
     searchParams,
   ]);
   const stats = [
@@ -57,7 +59,10 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
   ];
   return (
     <main className="studio-main">
-      <Link className="button secondary" href="/studio">Back to studio</Link>
+      <div className="admin-toolbar">
+        <Link className="button secondary" href="/studio">Back to studio</Link>
+        <AdminAccessBell initial={queue ? accessQueueSnapshot(queue) : null}/>
+      </div>
       <div className="page-heading spaced"><div><h1>SnapCue administration</h1><p>Owner access · production health and aggregate usage</p></div></div>
       <section className="card stack" aria-labelledby="access-heading">
         <h2 id="access-heading">Account access requests</h2>

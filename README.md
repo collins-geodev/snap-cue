@@ -27,7 +27,7 @@ The studio opens in light mode for new users. Use the sun or moon button in the 
 | Live Assistant | Get real-time transcription and suggestions after confirming participant permission. |
 | History and analytics | Review practice scores, communication trends, saved interviews, and any transcripts you chose to retain. |
 | Settings | Manage appearance, speech language, microphones, notifications, retention, data export, and account deletion. |
-| Owner dashboard | Review access requests and view aggregate usage and service health at `/admin` with the configured owner account. |
+| Owner dashboard | Review access requests and view aggregate usage and service health at `/admin` with the configured owner account. The dashboard bell reports new pending requests while the page is open. |
 
 Live assistance requires the permission of everyone being recorded and must be allowed by the interview organizer. SnapCue does not retain raw audio. Saved live transcripts are opt-in. The app can be installed as a PWA and offers an offline fallback.
 

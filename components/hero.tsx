@@ -12,9 +12,10 @@ const features = [
 
 export function Hero() {
   const mode = process.env.NEXT_PUBLIC_SNAPCUE_MODE;
-  const studio = mode === "cloud" ? "/sign-up" : "/studio";
+  const requiresApproval = mode === "cloud" && process.env.VERCEL_ENV === "production";
+  const studio = requiresApproval ? "/waitlist" : mode === "cloud" ? "/sign-up" : "/studio";
   return <div className="landing">
-    <header className="landing-nav"><Brand /><nav aria-label="Main"><a href="#features">Features</a><a href="#how-it-works">How it works</a></nav><div className="nav-actions"><Link className="button ghost" href={mode === "cloud" ? "/sign-in" : "/studio"}>{mode === "cloud" ? "Sign in" : "Demo"}</Link><Link className="button primary" href={studio}>Get started <ArrowRight size={15}/></Link></div></header>
+    <header className="landing-nav"><Brand /><nav aria-label="Main"><a href="#features">Features</a><a href="#how-it-works">How it works</a></nav><div className="nav-actions"><Link className="button ghost" href={mode === "cloud" ? "/sign-in" : "/studio"}>{mode === "cloud" ? "Sign in" : "Demo"}</Link><Link className="button primary" href={studio}>{requiresApproval ? "Request access" : "Get started"} <ArrowRight size={15}/></Link></div></header>
     <main>
       <section className="hero"><div className="hero-decoration" />
         <div className="hero-copy">
