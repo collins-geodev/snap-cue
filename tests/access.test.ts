@@ -122,3 +122,42 @@ test("theme toggling persists the choice without replacing other preferences", a
   await member.mutation(api.store.setTheme, { theme: "dark" });
   assert.deepEqual((await member.query(api.store.workspace, {})).settings, { ...initial, language: "fr", theme: "dark" });
 });
+
+test("a revoked AI key still saves a CV and imports its labeled details", async t => {
+  const previousKey = process.env.OPENAI_API_KEY;
+  const previousFetch = globalThis.fetch;
+  process.env.OPENAI_API_KEY = "revoked-test-key";
+  let available = false;
+  const vector = [1, ...Array<number>(1535).fill(0)];
+  globalThis.fetch = (async (url: string) => {
+    if (!available) return Response.json({ error: { code: "token_invalidated" } }, { status: 401 });
+    assert.match(url, /\/embeddings$/);
+    return Response.json({ data: [{ index: 0, embedding: vector }] });
+  }) as typeof fetch;
+  t.after(() => {
+    globalThis.fetch = previousFetch;
+    if (previousKey === undefined) delete process.env.OPENAI_API_KEY;
+    else process.env.OPENAI_API_KEY = previousKey;
+  });
+
+  const backend = convexTest(schema, modules);
+  const candidate = backend.withIdentity({ subject: "candidate", tokenIdentifier: "test|candidate" });
+  const text = "Professional Summary\nDevelops spatial data tools.\nCore Skills: QGIS, Python\nEducation & Certifications\nBSc Geography\nCertified GIS Professional\nREFERENCES AVAILABLE\nDo not import this line.";
+  const result = await candidate.action(api.intelligence.ingest, {
+    kind: "resume", title: "Workspace CV", text,
+    file: { base64: Buffer.from(text).toString("base64"), type: "text/plain" },
+  });
+  assert.equal(result.indexed, false);
+  assert.equal(result.profileImport, "updated");
+  const workspace = await candidate.query(api.store.workspace, {});
+  assert.equal(workspace.entries[0].text, text);
+  assert.equal(workspace.profile?.summary, "Develops spatial data tools.");
+  assert.equal(workspace.profile?.skills, "QGIS, Python");
+  assert.equal(workspace.profile?.education, "BSc Geography");
+  assert.equal(workspace.profile?.certifications, "Certified GIS Professional");
+
+  available = true;
+  const evidence = await candidate.action(api.intelligence.answerContext, { question: "What skills do you use?", resume: result.id });
+  assert.equal(evidence.sources[0].label, "[RESUME EXCERPT] Workspace CV");
+  assert.match(evidence.sources[0].text, /QGIS, Python/);
+});

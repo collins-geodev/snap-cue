@@ -29,10 +29,14 @@ export function Documents({ data, kind }: { data: Workspace; kind: Entry["kind"]
     setUploadError("");
     setBusy(true);
     try {
-      const { profileImport } = await data.saveDocument(form);
+      const { profileImport, indexed } = await data.saveDocument(form);
       node.reset();
       setEdit(null);
-      if (profileImport === "updated") toast.success("CV saved and professional details updated.");
+      if (indexed === false) {
+        toast.warning(profileImport === "updated"
+          ? "CV saved and professional details updated. AI matching is currently unavailable."
+          : "CV saved. AI matching is currently unavailable. You can edit the professional details below.");
+      } else if (profileImport === "updated") toast.success("CV saved and professional details updated.");
       else if (profileImport === "unavailable") toast.warning("CV saved. Professional details could not be imported.");
       else if (profileImport === "no_changes") toast.success("CV saved. No new professional details found.");
       else toast.success(`${label} saved`);

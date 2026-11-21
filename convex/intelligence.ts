@@ -8,7 +8,7 @@ import { chunkText, grounding, jobAnalysisSchema, assessmentSchema, setupSchema,
 import { complete, embed } from "../lib/openai";
 import { analysis, assessment, setup, category, difficulty, profile, profileImportStatus } from "./validators";
 import { ownerOf } from "./identity";
-import { groundedResumeProfile, resumeProfileSchema } from "../lib/resume-profile";
+import { extractResumeSections, groundedResumeProfile, hasResumeDetails, resumeProfileSchema } from "../lib/resume-profile";
 
 async function extractResumeProfile(text: string) {
   try {
@@ -25,7 +25,7 @@ async function extractResumeProfile(text: string) {
 type Doc = GenericId<"documents">;
 const ref = <T extends "query" | "mutation">(name: string) => makeFunctionReference<T>(name);
 const getContext = ref<"query">("store:context") as FunctionReference<"query", "public", {
-  owner: string; ids: GenericId<"knowledgeChunks">[]; resume?: Doc; job?: Doc;
+  owner: string; ids: GenericId<"knowledgeChunks">[]; resume?: Doc; job?: Doc; includeResumeExcerpt?: boolean;
 }, { sources: { label: string; text: string }[]; profile: Profile | null }>;
 const budget = ref<"mutation">("store:quota");
 const selection = { resume: v.optional(v.id("documents")), job: v.optional(v.id("documents")) };
@@ -46,22 +46,29 @@ async function retrieve(ctx: GenericActionCtx<DataModel>, owner: string, query: 
       const hits = await ctx.vectorSearch("knowledgeChunks", "by_embedding", { vector, limit: 4, filter: q => q.eq("document", document) });
       ids.unshift(...hits.map(hit => hit._id));
   }
-  const context = await ctx.runQuery(getContext, { owner, ids: [...new Set(ids)], resume, job });
+  const context = await ctx.runQuery(getContext, { owner, ids: [...new Set(ids)], resume, job, includeResumeExcerpt: true });
   return { ...context, sources: context.sources.slice(0, 8) };
 }
 
 export const ingest = action({
-  args: ingestFields, returns: v.object({ id: v.id("documents"), analysis: v.optional(analysis), profileImport: v.optional(profileImportStatus) }),
-  handler: async (ctx, args): Promise<{ id: Doc; analysis?: ReturnType<typeof jobAnalysisSchema.parse>; profileImport?: "updated" | "no_changes" | "unavailable" }> => {
+  args: ingestFields, returns: v.object({ id: v.id("documents"), analysis: v.optional(analysis), profileImport: v.optional(profileImportStatus), indexed: v.optional(v.boolean()) }),
+  handler: async (ctx, args): Promise<{ id: Doc; analysis?: ReturnType<typeof jobAnalysisSchema.parse>; profileImport?: "updated" | "no_changes" | "unavailable"; indexed?: boolean }> => {
     const owner = await ownerOf(ctx);
     await ctx.runMutation(budget, { kind: "upload" });
     const text = args.text.replaceAll("\u0000", "").trim();
     if (!text || text.length > 55000 || !args.title.trim() || args.title.length > 160 || (args.organization?.length ?? 0) > 120) throw new Error("Check the document length and title.");
     const chunks = chunkText(text);
     if (chunks.length > 100) throw new Error("This document contains too many short tokens.");
-    const [embeddings, extractedProfile] = await Promise.all([
-      embed(chunks), args.kind === "resume" ? extractResumeProfile(text) : undefined,
+    const isResume = args.kind === "resume";
+    const embeddingRequest = embed(chunks);
+    const [embeddings, modelProfile] = await Promise.all([
+      isResume ? embeddingRequest.catch(() => undefined) : embeddingRequest,
+      isResume ? extractResumeProfile(text) : undefined,
     ]);
+    const extractedProfile = isResume
+      ? (modelProfile && hasResumeDetails(modelProfile) ? modelProfile : extractResumeSections(text))
+      : undefined;
+    const indexedChunks = embeddings ? chunks.map((chunk, i) => ({ text: chunk, embedding: embeddings[i] })) : [];
     const report = args.kind === "job" ? jobAnalysisSchema.parse(JSON.parse(await complete(
       grounding + " Compare the job with candidate evidence. Return JSON with string arrays skills, strengths, gaps, questions. Identify gaps in supplied evidence and predict role-specific questions.",
       { job: text, candidate: await retrieve(ctx, owner, text, args.resume) }, undefined, true,
@@ -79,10 +86,11 @@ export const ingest = action({
       const result: { id: Doc; profileUpdated: boolean } = await ctx.runMutation(ref<"mutation">("store:writeDocument"), {
         owner, title: args.title.trim(), kind: args.kind, organization: args.organization, text,
         storageId, analysis: report, replace: args.replace, extractedProfile,
-        chunks: chunks.map((chunk, i) => ({ text: chunk, embedding: embeddings[i] })),
+        chunks: indexedChunks,
       });
-      const profileImport = args.kind === "job" ? undefined : extractedProfile ? (result.profileUpdated ? "updated" : "no_changes") : "unavailable";
-      return { id: result.id, analysis: report, profileImport };
+      const profileImport = !isResume ? undefined : result.profileUpdated ? "updated" :
+        extractedProfile && hasResumeDetails(extractedProfile) ? "no_changes" : "unavailable";
+      return { id: result.id, analysis: report, profileImport, indexed: isResume ? Boolean(embeddings) : undefined };
     } catch (error) {
       if (storageId) await ctx.storage.delete(storageId);
       throw error;

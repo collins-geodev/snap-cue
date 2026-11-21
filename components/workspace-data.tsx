@@ -14,7 +14,7 @@ export type Workspace = Data & {
   demo: boolean; name: string; isOwner?: boolean;
   saveProfile(value: Profile, changed?: (keyof Profile)[]): Promise<void>; saveSettings(value: Settings): Promise<void>;
   setTheme(theme: Settings["theme"]): Promise<void>;
-  saveDocument(form: FormData): Promise<{ profileImport?: "updated" | "no_changes" | "unavailable" }>; removeDocument(id: string): Promise<void>;
+  saveDocument(form: FormData): Promise<{ profileImport?: "updated" | "no_changes" | "unavailable"; indexed?: boolean }>; removeDocument(id: string): Promise<void>;
   question(config: Setup, previous: string[], selection: Selection): Promise<string>;
   assess(question: string, answer: string, config: Setup, selection: Selection): Promise<Assessment>;
   saveSession(config: Setup, turns: Turn[], id?: string): Promise<string>;

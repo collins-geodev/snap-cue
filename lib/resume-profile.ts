@@ -43,3 +43,58 @@ export function mergeResumeProfile(current: Profile | undefined, extracted: Resu
   }
   return merged;
 }
+
+type ResumeSection = keyof ResumeProfile | "educationAndCertifications";
+const sectionNames: Record<string, ResumeSection> = {
+  summary: "summary", "professional summary": "summary", "career summary": "summary",
+  "professional profile": "summary", "career profile": "summary", profile: "summary",
+  skills: "skills", "core skills": "skills", "technical skills": "skills", "key skills": "skills",
+  "core competencies": "skills", competencies: "skills", "technical expertise": "skills", tools: "skills",
+  experience: "experience", "professional experience": "experience", "work experience": "experience",
+  "employment experience": "experience", "employment history": "experience", "work history": "experience",
+  education: "education", "education and training": "education", "academic qualifications": "education",
+  "education and qualifications": "education", certifications: "certifications",
+  "education and certifications": "educationAndCertifications",
+  "professional certifications": "certifications", "certifications and training": "certifications",
+  "licenses and certifications": "certifications", training: "certifications",
+  projects: "projects", "selected projects": "projects", "key projects": "projects", "major projects": "projects",
+  achievements: "achievements", "key achievements": "achievements", "awards and honors": "achievements",
+  languages: "languages", "language skills": "languages",
+};
+
+export function hasResumeDetails(profile: ResumeProfile) {
+  return Boolean(profile.summary.trim() || resumeFields.some(field => profile[field].length));
+}
+
+export function extractResumeSections(text: string): ResumeProfile {
+  const result = resumeProfileSchema.parse({});
+  let section: ResumeSection | undefined;
+  for (const raw of text.split(/\r?\n/)) {
+    let line = raw.trim().replace(/^[•▪◦]\s*/, "");
+    if (!line || /^page\s+\d+(?:\s+of\s+\d+)?$/i.test(line)) continue;
+    const colon = line.indexOf(":");
+    const heading = normalized(colon === -1 ? line : line.slice(0, colon)).replace(/\s*&\s*/g, " and ");
+    if (Object.hasOwn(sectionNames, heading)) {
+      section = sectionNames[heading];
+      line = colon === -1 ? "" : line.slice(colon + 1).trim();
+    } else if (colon === -1 && /^[A-Z][A-Z &/–-]{2,45}$/.test(line) && /\s/.test(line)) {
+      section = undefined;
+    }
+    if (!section || !line || line.length > 800 || /@|https?:\/\//i.test(line)) continue;
+
+    const field = section === "educationAndCertifications" ? educationOrCertification(line) : section;
+    if (!field) continue;
+    if (field === "summary") {
+      const summary = result.summary ? `${result.summary} ${line}` : line;
+      if (summary.length <= 800) result.summary = summary;
+    } else if (result[field].length < 25 && !result[field].some(item => normalized(item) === normalized(line))) {
+      result[field].push(line);
+    }
+  }
+  return result;
+}
+
+function educationOrCertification(line: string): "education" | "certifications" | undefined {
+  if (/\b(?:certif\w*|licen[sc]\w*|credential|accredit\w*|training|course)\b/i.test(line)) return "certifications";
+  if (/\b(?:university|college|degree|diploma|bachelor|master|doctorate|b\.?sc|m\.?sc|b\.?eng|m\.?eng|ph\.?d|mba|hnd|pgd)\b/i.test(line)) return "education";
+}

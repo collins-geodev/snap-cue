@@ -148,7 +148,7 @@ export const writeDocument = internalMutation({
   },
 });
 export const context = internalQuery({
-  args: { owner: v.string(), ids: v.array(v.id("knowledgeChunks")), resume: v.optional(v.id("documents")), job: v.optional(v.id("documents")) },
+  args: { owner: v.string(), ids: v.array(v.id("knowledgeChunks")), resume: v.optional(v.id("documents")), job: v.optional(v.id("documents")), includeResumeExcerpt: v.optional(v.boolean()) },
   returns: v.object({ sources: v.array(v.object({ label: v.string(), text: v.string() })), profile: v.union(profile, v.null()) }),
   handler: async (ctx, args) => {
     for (const [id, kind] of [[args.resume, "resume"], [args.job, "job"]] as const) {
@@ -158,12 +158,20 @@ export const context = internalQuery({
     }
     const record = await ctx.db.query("profiles").withIndex("by_owner", q => q.eq("owner", args.owner)).unique();
     const sources = [];
+    let hasResumeSource = false;
     for (const id of args.ids) {
       const chunk = await ctx.db.get("knowledgeChunks", id);
       if (chunk?.owner !== args.owner) continue;
       const doc = await ctx.db.get("documents", chunk.document);
       if (doc?.owner === args.owner && (doc.kind === "resume" ? !args.resume || args.resume === doc._id : args.job === doc._id)) {
         sources.push({ label: `[${doc.kind.toUpperCase()} ${sources.length + 1}] ${doc.title}`, text: chunk.text });
+        hasResumeSource ||= doc.kind === "resume";
+      }
+    }
+    if (args.includeResumeExcerpt && args.resume && !hasResumeSource) {
+      const resume = await ctx.db.get("documents", args.resume);
+      if (resume?.owner === args.owner && resume.kind === "resume") {
+        sources.unshift({ label: `[RESUME EXCERPT] ${resume.title}`, text: resume.text.slice(0, 2500) });
       }
     }
     return { sources, profile: record?.value ?? null };
