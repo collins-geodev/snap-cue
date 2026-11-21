@@ -90,3 +90,16 @@ test("only the configured Clerk subject can read aggregate operations data", asy
     interviews: 1, aiRequests: 1, transcriptionRequests: 1, liveSessions: 0, activeUserDays: 1, activeToday: 1,
   });
 });
+
+test("theme toggling persists the choice without replacing other preferences", async () => {
+  const backend = convexTest(schema, modules);
+  const member = backend.withIdentity({ subject: "member", tokenIdentifier: "test|member" });
+  await assert.rejects(backend.mutation(api.store.setTheme, { theme: "light" }), /Sign in/);
+  await member.mutation(api.store.setTheme, { theme: "light" });
+  const initial = (await member.query(api.store.workspace, {})).settings;
+  assert.equal(initial?.theme, "light");
+  if (!initial) throw new Error("Missing preferences");
+  await member.mutation(api.store.saveSettings, { value: { ...initial, language: "fr" } });
+  await member.mutation(api.store.setTheme, { theme: "dark" });
+  assert.deepEqual((await member.query(api.store.workspace, {})).settings, { ...initial, language: "fr", theme: "dark" });
+});

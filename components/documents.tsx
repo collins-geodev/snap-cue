@@ -78,7 +78,7 @@ export function Preferences({ data }: { data: Workspace }) {
       const form = new FormData(event.currentTarget);
       try { await data.saveSettings({ language: String(form.get("language")), theme: form.get("theme") === "light" ? "light" : "dark", length: form.get("length") === "standard" ? "standard" : "brief", model: String(form.get("model")), retainTranscript: form.has("retain"), notifications: form.has("notifications"), microphone: String(form.get("mic") ?? "") }); toast.success("Preferences saved"); } catch { toast.error("Could not save preferences"); }
     }}>
-      <div className="form-grid two"><label>Appearance<select name="theme" defaultValue={data.settings.theme}><option value="dark">Dark</option><option value="light">Light</option></select></label>
+      <div className="form-grid two"><label>Appearance<select key={data.settings.theme} name="theme" defaultValue={data.settings.theme}><option value="dark">Dark</option><option value="light">Light</option></select></label>
         <label>Suggested answer length<select name="length" defaultValue={data.settings.length}><option value="brief">Brief</option><option value="standard">Standard</option></select></label>
         <label>Speech language<select name="language" defaultValue={data.settings.language}>{Object.entries({ en: "English", fr: "French", es: "Spanish", de: "German", pt: "Portuguese", ar: "Arabic", hi: "Hindi", zh: "Chinese", ja: "Japanese" }).map(([value, name]) => <option key={value} value={value}>{name}</option>)}</select></label>
         <label>Answer model<select name="model" defaultValue={data.settings.model}><option value="gpt-5-mini">GPT-5 mini</option><option value="gpt-5.4-mini">GPT-5.4 mini</option></select></label>

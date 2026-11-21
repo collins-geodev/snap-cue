@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { mutation, query, internalMutation, internalQuery, type MutationCtx } from "./_generated/server";
 import { entry, profile, settings, setup, turn, analysis } from "./validators";
-import { assessmentSchema, setupSchema } from "../lib/domain";
+import { assessmentSchema, defaultSettings, setupSchema } from "../lib/domain";
 
 import { ownerOf } from "./identity";
 import { recordUsage } from "./admin";
@@ -45,6 +45,16 @@ export const saveSettings = mutation({
     const row = await ctx.db.query("userSettings").withIndex("by_owner", q => q.eq("owner", owner)).unique();
     if (row) await ctx.db.patch("userSettings", row._id, { value });
     else await ctx.db.insert("userSettings", { owner, value });
+    return null;
+  },
+});
+export const setTheme = mutation({
+  args: { theme: v.union(v.literal("light"), v.literal("dark")) }, returns: v.null(),
+  handler: async (ctx, { theme }) => {
+    const owner = await ownerOf(ctx);
+    const row = await ctx.db.query("userSettings").withIndex("by_owner", q => q.eq("owner", owner)).unique();
+    if (row) await ctx.db.patch("userSettings", row._id, { value: { ...row.value, theme } });
+    else await ctx.db.insert("userSettings", { owner, value: { ...defaultSettings, theme } });
     return null;
   },
 });

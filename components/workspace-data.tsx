@@ -13,6 +13,7 @@ export type Data = { profile: Profile; settings: Settings; entries: Entry[]; ses
 export type Workspace = Data & {
   demo: boolean; name: string;
   saveProfile(value: Profile): Promise<void>; saveSettings(value: Settings): Promise<void>;
+  setTheme(theme: Settings["theme"]): Promise<void>;
   saveDocument(form: FormData): Promise<void>; removeDocument(id: string): Promise<void>;
   question(config: Setup, previous: string[], selection: Selection): Promise<string>;
   assess(question: string, answer: string, config: Setup, selection: Selection): Promise<Assessment>;
@@ -49,6 +50,7 @@ export function DemoWorkspace({ children }: { children: (data: Workspace) => Rea
     ...state, demo: true, name: "there",
     async saveProfile(profile) { update({ profile }); },
     async saveSettings(settings) { update({ settings }); },
+    async setTheme(theme) { update({ settings: { ...state.settings, theme } }); },
     async saveDocument(form) {
       const kind = form.get("kind") === "resume" ? "resume" : "job";
       const file = form.get("file");
@@ -89,6 +91,7 @@ function Connected({ children }: { children: (data: Workspace) => ReactNode }) {
   const transcripts = useQuery(api.store.transcripts);
   const saveProfile = useMutation(api.store.saveProfile);
   const saveSettings = useMutation(api.store.saveSettings);
+  const setTheme = useMutation(api.store.setTheme);
   const saveSession = useMutation(api.store.saveSession);
   const removeSession = useMutation(api.store.removeSession);
   const removeDocument = useMutation(api.store.removeDocument);
@@ -102,6 +105,7 @@ function Connected({ children }: { children: (data: Workspace) => ReactNode }) {
     profile: data.profile ?? defaultProfile, settings: data.settings ?? defaultSettings,
     entries: data.entries, sessions: data.sessions.map(row => ({ ...row.setup, id: row.id, created: row.created, turns: row.turns })), transcripts,
     async saveProfile(value) { await saveProfile({ value }); }, async saveSettings(value) { await saveSettings({ value }); },
+    async setTheme(theme) { await setTheme({ theme }); },
     async saveDocument(form) {
       const response = await fetch("/api/documents", { method: "POST", body: form });
       if (!response.ok) throw new Error((await response.json()).error);

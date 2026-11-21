@@ -2,8 +2,9 @@
 import Link from "next/link";
 import { UserButton } from "@clerk/nextjs";
 import { motion, MotionConfig } from "motion/react";
-import { AudioLines, BriefcaseBusiness, ChevronDown, CircleHelp, FileText, History, LayoutDashboard, Menu, Mic, Settings as SettingsIcon, Sparkles, X } from "lucide-react";
+import { AudioLines, BriefcaseBusiness, ChevronDown, CircleHelp, FileText, History, LayoutDashboard, Menu, Mic, Moon, Settings as SettingsIcon, Sparkles, Sun, X } from "lucide-react";
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 import { mode } from "@/lib/domain";
 import { Brand } from "./brand";
 import { CloudWorkspace, DemoWorkspace, type Workspace } from "./workspace-data";
@@ -31,6 +32,19 @@ const views = {
 };
 function Content({ data, view }: { data: Workspace; view: View }) {
   const [menu, setMenu] = useState(false);
+  const [savingTheme, setSavingTheme] = useState(false);
+  const nextTheme = data.settings.theme === "dark" ? "light" : "dark";
+
+  async function toggleTheme() {
+    setSavingTheme(true);
+    try {
+      await data.setTheme(nextTheme);
+    } catch {
+      toast.error("Could not change the theme. Try again.");
+    } finally {
+      setSavingTheme(false);
+    }
+  }
   const Screen = views[view];
   const selected = navigation.find(item => item.id === view)!;
   useEffect(() => {
@@ -44,7 +58,7 @@ function Content({ data, view }: { data: Workspace; view: View }) {
       <nav aria-label="Workspace"><span className="nav-label">WORKSPACE</span>{navigation.slice(0, 3).map(link)}<span className="nav-label">INTERVIEWS</span>{navigation.slice(3, 7).map(link)}<span className="nav-label">PREFERENCES</span>{link(navigation[7])}</nav>
       <div className="sidebar-footer"><Link href="/#how-it-works"><CircleHelp size={18}/> How SnapCue works</Link></div>
     </aside>
-    <div className="studio-body"><header className="studio-header"><div><button className="icon-button mobile-only" aria-label="Open navigation" aria-expanded={menu} onClick={() => setMenu(!menu)}><Menu size={22}/></button><span>Workspace</span><ChevronDown size={13} className="breadcrumb-icon"/><strong>{selected.text}</strong></div><div>{data.demo ? <><span className="demo-badge"><i /> Demo mode</span><span className="avatar" aria-label="Demo profile">D</span></> : <UserButton />}</div></header>
+    <div className="studio-body"><header className="studio-header"><div><button className="icon-button mobile-only" aria-label="Open navigation" aria-expanded={menu} onClick={() => setMenu(!menu)}><Menu size={22}/></button><span>Workspace</span><ChevronDown size={13} className="breadcrumb-icon"/><strong>{selected.text}</strong></div><div><button type="button" className="icon-button" aria-label={`Switch to ${nextTheme} theme`} title={`Switch to ${nextTheme} theme`} disabled={savingTheme} onClick={toggleTheme}>{nextTheme === "light" ? <Sun size={20} aria-hidden="true"/> : <Moon size={20} aria-hidden="true"/>}</button>{data.demo ? <><span className="demo-badge"><i /> Demo mode</span><span className="avatar" aria-label="Demo profile">D</span></> : <UserButton />}</div></header>
       <main className="studio-main" id="main"><motion.div key={view} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }}><Screen data={data}/></motion.div></main>
     </div>
   </div></MotionConfig>;
