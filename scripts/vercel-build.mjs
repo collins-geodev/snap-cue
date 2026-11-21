@@ -24,8 +24,10 @@ const env = { ...process.env, NEXT_PUBLIC_SNAPCUE_MODE: key ? "cloud" : "demo" }
 delete env.NEXT_PUBLIC_CONVEX_URL;
 const next = require.resolve("next/dist/bin/next");
 const convex = join(dirname(require.resolve("convex/package.json")), "bin/main.js");
-if (key && (!env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY || !env.CLERK_SECRET_KEY || !env.OPENAI_API_KEY)) {
-  console.error("Set Cloud Clerk and OpenAI credentials for this target before deploying.");
+const cloudVariables = ["NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY", "CLERK_SECRET_KEY", "OPENAI_API_KEY"];
+const missing = cloudVariables.filter(name => !env[name]?.trim());
+if (key && missing.length) {
+  console.error(`Missing Vercel ${stage} environment variables: ${missing.join(", ")}`);
   process.exit(1);
 }
 if (production) {
