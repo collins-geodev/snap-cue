@@ -14,7 +14,7 @@ export async function extract(file: File) {
     if (data.subarray(0, 5).toString() !== "%PDF-") throw new DocumentReadError("Invalid PDF.");
     const { extractText, getDocumentProxy } = await import("unpdf");
     try {
-      const document = await getDocumentProxy(new Uint8Array(data), { isEvalSupported: false });
+      const document = await getDocumentProxy(new Uint8Array(data));
       try {
         text = (await extractText(document, { mergePages: true })).text;
       } finally {
