@@ -3,6 +3,7 @@ import { useState, type FormEvent } from "react";
 import { BriefcaseBusiness, FileText, UploadCloud } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeading } from "./page-heading";
+import { ProfilePhoto } from "./profile-photo";
 import { Button } from "./ui/button";
 import { download } from "./dashboard";
 import type { Workspace } from "./workspace-data";
@@ -42,6 +43,7 @@ export function Documents({ data, kind }: { data: Workspace; kind: Entry["kind"]
       </div></details>)}
       {!rows.length && <p className="empty">Your saved {cloudJob ? "job descriptions" : "CVs"} will appear here.</p>}
     </section></div>
+    {!cloudJob && !data.demo && <ProfilePhoto/>}
     {!cloudJob && <ProfileEditor data={data}/>}
   </>;
 }
