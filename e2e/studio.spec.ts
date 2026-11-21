@@ -75,3 +75,13 @@ test("light is the default and the studio keeps an explicit theme choice", async
   await page.getByRole("button", { name: "Switch to light theme" }).click();
   await expect(root).toHaveAttribute("data-theme", "light");
 });
+
+test("landing card motion honors the browser preference", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await page.goto("/");
+  const card = page.locator(".feature").filter({ has: page.getByRole("heading", { name: "Know your strengths" }) });
+  await card.hover();
+  await expect(card).not.toHaveCSS("transform", "none");
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await expect(card).toHaveCSS("transform", "none");
+});

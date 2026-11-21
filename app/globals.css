@@ -229,3 +229,43 @@ hr { border: 0; border-top: 1px solid var(--line); }
     transform: translateY(-2px) rotate(-8deg) scale(1.1);
   }
 }
+
+.auth-sign-in { position: relative; display: grid; justify-items: center; gap: 12px; max-width: 100%; }
+.sign-in-notices { justify-self: end; position: relative; z-index: 2; }
+.sign-in-notices summary { list-style: none; margin-inline-start: auto; border: 1px solid var(--line); background: var(--surface); }
+.sign-in-notices summary::-webkit-details-marker { display: none; }
+.sign-in-notice-panel { margin-block-start: 8px; width: min(330px, calc(100vw - 48px)); display: grid; gap: 12px; box-shadow: var(--shadow); }
+.sign-in-notice-panel p { color: var(--muted); font-size: .9rem; }
+.sign-in-notice-panel .button { justify-self: start; }
+.access-request { list-style: none; display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; border-top: 1px solid var(--line); padding-top: 12px; }
+.access-request strong { overflow-wrap: anywhere; }
+
+@media (prefers-reduced-motion: no-preference) {
+  .feature, .stat, .preview, .dashboard-grid > .card {
+    transition: transform 240ms cubic-bezier(.2,.75,.25,1), border-color 240ms ease, box-shadow 240ms ease;
+  }
+  .feature:is(:hover, :focus-within), .stat:hover, .preview:hover, .dashboard-grid > .card:is(:hover, :focus-within) {
+    transform: translateY(-4px);
+    border-color: color-mix(in srgb, var(--accent) 25%, var(--line));
+    box-shadow: 0 14px 30px color-mix(in srgb, var(--accent) 12%, transparent);
+  }
+  .feature:hover .feature-icon svg, .stat:hover .stat-icon svg {
+    animation: card-icon-lift 420ms cubic-bezier(.22,.8,.35,1) both;
+  }
+  .sign-in-notices[open] summary svg { animation: notice-ring 350ms ease-out both; }
+  .sign-in-notices[open] .sign-in-notice-panel { animation: notice-enter 170ms ease-out both; }
+}
+@keyframes card-icon-lift {
+  0% { transform: translateY(0) rotate(0); }
+  55% { transform: translateY(-5px) rotate(-10deg) scale(1.12); }
+  100% { transform: translateY(-2px) rotate(-5deg) scale(1.08); }
+}
+@keyframes notice-ring {
+  0%, 100% { transform: rotate(0); }
+  30% { transform: rotate(-14deg); }
+  65% { transform: rotate(12deg); }
+}
+@keyframes notice-enter {
+  from { opacity: 0; transform: translateY(-5px); }
+  to { opacity: 1; transform: translateY(0); }
+}

@@ -8,7 +8,7 @@ SnapCue helps you prepare for interviews using your CV and a job description. Pr
 
 ## Get started
 
-1. Create an account and verify your email.
+1. Request access from the sign-in page. After a SnapCue administrator approves your request, use the emailed invitation to create your account.
 2. Open **Professional Profile** to upload your CV, add professional details, and set your profile photo.
 3. Add a role and its description in **Job Intelligence** to review likely requirements and gaps.
 4. Start a **Mock Interview** for guided practice, or open the **Answer Assistant** for structured talking points.
@@ -27,7 +27,7 @@ The studio opens in light mode for new users. Use the sun or moon button in the 
 | Live Assistant | Get real-time transcription and suggestions after confirming participant permission. |
 | History and analytics | Review practice scores, communication trends, saved interviews, and any transcripts you chose to retain. |
 | Settings | Manage appearance, speech language, microphones, notifications, retention, data export, and account deletion. |
-| Owner dashboard | View service health and aggregate usage at `/admin` with the configured owner account. |
+| Owner dashboard | Review access requests and view aggregate usage and service health at `/admin` with the configured owner account. |
 
 Live assistance requires the permission of everyone being recorded and must be allowed by the interview organizer. SnapCue does not retain raw audio. Saved live transcripts are opt-in. The app can be installed as a PWA and offers an offline fallback.
 
