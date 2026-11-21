@@ -3,16 +3,17 @@ import { mutation, query, internalMutation, internalQuery, type MutationCtx } fr
 import { entry, profile, settings, setup, turn, analysis, resumeProfile } from "./validators";
 import { assessmentSchema, defaultProfile, defaultSettings, setupSchema, type Profile } from "../lib/domain";
 
-import { ownerOf } from "./identity";
+import { identityOf, isConfiguredOwner, ownerOf } from "./identity";
 import { recordUsage } from "./admin";
 import { mergeResumeProfile, profileFieldLimit } from "../lib/resume-profile";
 
 const session = v.object({ id: v.id("interviewSessions"), created: v.number(), setup, turns: v.array(turn) });
 export const workspace = query({
   args: {},
-  returns: v.object({ profile: v.union(profile, v.null()), settings: v.union(settings, v.null()), entries: v.array(entry), sessions: v.array(session) }),
+  returns: v.object({ isOwner: v.boolean(), profile: v.union(profile, v.null()), settings: v.union(settings, v.null()), entries: v.array(entry), sessions: v.array(session) }),
   handler: async ctx => {
-    const owner = await ownerOf(ctx);
+    const identity = await identityOf(ctx);
+    const owner = identity.tokenIdentifier;
     const [person, preferences, documents, sessions] = await Promise.all([
       ctx.db.query("profiles").withIndex("by_owner", q => q.eq("owner", owner)).unique(),
       ctx.db.query("userSettings").withIndex("by_owner", q => q.eq("owner", owner)).unique(),
@@ -20,6 +21,7 @@ export const workspace = query({
       ctx.db.query("interviewSessions").withIndex("by_owner", q => q.eq("owner", owner)).order("desc").take(100),
     ]);
     return {
+      isOwner: isConfiguredOwner(identity),
       profile: person?.value ?? null, settings: preferences?.value ?? null,
       entries: documents.map(({ _id, _creationTime, kind, title, organization, text, analysis }) => ({ id: _id, created: _creationTime, kind, title, organization, text, analysis })),
       sessions: sessions.map(row => ({ id: row._id, created: row._creationTime, setup: row.setup, turns: row.turns })),

@@ -11,7 +11,7 @@ import { defaultProfile, defaultSettings, demoAssessment, demoQuestion, type Ass
 export type Selection = { resume?: string; job?: string };
 export type Data = { profile: Profile; settings: Settings; entries: Entry[]; sessions: Session[]; transcripts: { id: string; created: number; text: string }[] };
 export type Workspace = Data & {
-  demo: boolean; name: string;
+  demo: boolean; name: string; isOwner?: boolean;
   saveProfile(value: Profile, changed?: (keyof Profile)[]): Promise<void>; saveSettings(value: Settings): Promise<void>;
   setTheme(theme: Settings["theme"]): Promise<void>;
   saveDocument(form: FormData): Promise<{ profileImport?: "updated" | "no_changes" | "unavailable" }>; removeDocument(id: string): Promise<void>;
@@ -106,7 +106,7 @@ function Connected({ children, loadTranscripts }: { children: (data: Workspace) 
   const evaluate = useAction(api.intelligence.evaluate);
   if (!data || (loadTranscripts && !transcripts)) return <p className="loading" role="status">Loading your workspace…</p>;
   return children({
-    demo: false, name: user?.firstName ?? "there",
+    demo: false, isOwner: data.isOwner, name: user?.firstName ?? "there",
     profile: data.profile ?? defaultProfile, settings: data.settings ?? defaultSettings,
     entries: data.entries, sessions: data.sessions.map(row => ({ ...row.setup, id: row.id, created: row.created, turns: row.turns })), transcripts: transcripts ?? [],
     async saveProfile(value, changed) { await saveProfile({ value, changed }); }, async saveSettings(value) { await saveSettings({ value }); },

@@ -99,6 +99,8 @@ test("only the configured Clerk subject can read aggregate operations data", asy
   process.env.SNAPCUE_OWNER_SUBJECT = "owner";
   assert.equal(await backend.query(api.admin.overview, {}), null);
   assert.equal(await member.query(api.admin.overview, {}), null);
+  assert.equal((await member.query(api.store.workspace, {})).isOwner, false);
+  assert.equal((await owner.query(api.store.workspace, {})).isOwner, true);
   await member.mutation(api.store.quota, { kind: "ai" });
   await member.mutation(api.store.quota, { kind: "speech" });
   const interview = await member.mutation(api.store.saveSession, { setup, turns: [turn] });

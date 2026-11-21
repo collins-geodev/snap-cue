@@ -59,13 +59,13 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
   ];
   return (
     <main className="studio-main">
-      <div className="admin-toolbar">
-        <Link className="button secondary" href="/studio">Back to studio</Link>
-        <AdminAccessBell initial={queue ? accessQueueSnapshot(queue) : null}/>
-      </div>
+      <Link className="button secondary" href="/studio">Back to studio</Link>
       <div className="page-heading spaced"><div><h1>SnapCue administration</h1><p>Owner access · production health and aggregate usage</p></div></div>
       <section className="card stack" aria-labelledby="access-heading">
-        <h2 id="access-heading">Account access requests</h2>
+        <div className="access-queue-heading">
+          <h2 id="access-heading">Account access requests</h2>
+          <AdminAccessBell initial={queue ? accessQueueSnapshot(queue) : null}/>
+        </div>
         {feedback.access && Object.hasOwn(accessMessages, feedback.access) && <p role="status">{accessMessages[feedback.access]}</p>}
         {!queue ? <p className="muted">The access queue is unavailable.</p> : queue.data.length === 0 ? <p className="muted">No pending requests.</p> : (
           <>

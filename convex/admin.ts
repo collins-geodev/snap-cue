@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { query, type MutationCtx } from "./_generated/server";
+import { isConfiguredOwner } from "./identity";
 
 const metrics = ["interviews", "aiRequests", "transcriptionRequests", "liveSessions", "activeUserDays"] as const;
 type Metric = typeof metrics[number];
@@ -35,9 +36,7 @@ export const overview = query({
     activeUserDays: v.number(), activeToday: v.number(),
   })),
   handler: async ctx => {
-    const owner = process.env.SNAPCUE_OWNER_SUBJECT;
-    const identity = await ctx.auth.getUserIdentity();
-    if (!owner || identity?.subject !== owner) return null;
+    if (!isConfiguredOwner(await ctx.auth.getUserIdentity())) return null;
     const now = new Date();
     const today = now.toISOString().slice(0, 10);
     now.setUTCDate(now.getUTCDate() - 6);
