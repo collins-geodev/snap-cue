@@ -8,6 +8,7 @@ import "./globals.css";
 export const metadata: Metadata = { title: "SnapCue — AI Interview Copilot", description: "Hear the question. Find your confidence.", manifest: "/manifest.webmanifest", icons: { icon: "/icon-192.png", apple: "/icon-192.png" }, appleWebApp: { capable: true, title: "SnapCue" } };
 export const viewport: Viewport = { themeColor: "#0b1020" };
 export default function RootLayout({ children }: { children: React.ReactNode }) {
+  const proxyUrl = process.env.VERCEL_ENV === "production" ? "/__clerk" : undefined;
   const content = <>{children}<Toaster richColors position="bottom-right" /><InstallShell /></>;
-  return <html lang="en" suppressHydrationWarning><body>{mode === "cloud" ? <ClerkProvider>{content}</ClerkProvider> : content}</body></html>;
+  return <html lang="en" suppressHydrationWarning><body>{mode === "cloud" ? <ClerkProvider proxyUrl={proxyUrl}>{content}</ClerkProvider> : content}</body></html>;
 }
