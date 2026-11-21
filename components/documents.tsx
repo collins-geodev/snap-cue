@@ -1,5 +1,6 @@
 "use client";
 import { useState, type FormEvent } from "react";
+import { useClerk } from "@clerk/nextjs";
 import { BriefcaseBusiness, FileText, UploadCloud } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeading } from "./page-heading";
@@ -57,6 +58,16 @@ function ProfileEditor({ data }: { data: Workspace }) {
     try { await data.saveProfile(value); toast.success("Profile saved"); } catch { toast.error("Could not save your profile"); } finally { setSaving(false); }
   }}><div className="form-grid two">{(Object.keys(fields) as (keyof Profile)[]).map(key => <label key={key}>{fields[key]}<textarea name={key} rows={3} maxLength={4000} defaultValue={data.profile[key]}/></label>)}</div><div><Button disabled={saving}>{saving ? "Saving…" : "Save profile"}</Button></div></form></section>;
 }
+function AccountSecurity() {
+  const { openUserProfile, loaded } = useClerk();
+  return (
+    <div className="stack">
+      <div><Button type="button" variant="secondary" disabled={!loaded} onClick={() => openUserProfile()}>Change password</Button></div>
+      <p className="muted">In the account window, select Security to update your password.</p>
+    </div>
+  );
+}
+
 export function Preferences({ data }: { data: Workspace }) {
   const [confirm, setConfirm] = useState("");
   const [busy, setBusy] = useState(false);
@@ -78,6 +89,7 @@ export function Preferences({ data }: { data: Workspace }) {
       <label className="check"><input name="retain" type="checkbox" defaultChecked={data.settings.retainTranscript}/> Offer to save live transcripts after each session</label>
       <div><Button>Save preferences</Button></div>
     </form></section><section className="card stack"><h2>Privacy and account</h2><p className="muted">Audio is sent to the transcription service during voice features. SnapCue does not retain raw audio. Live transcripts can be saved only if you enable retention and choose to save them.</p>
+      {!data.demo && <AccountSecurity/>}
       <div><Button variant="secondary" onClick={() => download("snapcue-data.json", { profile: data.profile, settings: data.settings, documents: data.entries, interviews: data.sessions, transcripts: data.transcripts })}>Export workspace data</Button></div>
       <hr/><label>Type DELETE to {data.demo ? "clear local demo data" : "delete your account and workspace"}<input value={confirm} onChange={event => setConfirm(event.target.value)} autoComplete="off"/></label>
       <div><Button variant="danger" disabled={confirm !== "DELETE" || busy} onClick={async () => { setBusy(true); try { await data.erase(); setConfirm(""); toast.success("Workspace data deleted"); } catch { toast.error("Could not delete your data"); } finally { setBusy(false); } }}>{data.demo ? "Clear demo data" : "Delete account"}</Button></div>
