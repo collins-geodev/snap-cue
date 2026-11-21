@@ -283,3 +283,5 @@ hr { border: 0; border-top: 1px solid var(--line); }
   .studio-access-notices .access-notice-label { display: none; }
   .studio-access-notices .access-notice-badge { position: absolute; inset-block-start: -5px; inset-inline-end: -5px; }
 }
+
+.document-error { color: var(--danger); font-size: .88rem; }

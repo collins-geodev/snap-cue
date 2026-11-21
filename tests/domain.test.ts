@@ -43,3 +43,33 @@ test("OpenAI requests use server authentication and validate embedding dimension
   fetchMock.mock.mockImplementation(async () => new Response("upstream private error", { status: 500 }));
   await assert.rejects(openAI("responses", {}), { message: "The AI service could not complete the request." });
 });
+
+function samplePdf(text: string) {
+  const stream = text ? `BT /F1 12 Tf 72 720 Td (${text}) Tj ET\n` : "";
+  const objects = [
+    "<< /Type /Catalog /Pages 2 0 R >>",
+    "<< /Type /Pages /Count 1 /Kids [3 0 R] >>",
+    "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>",
+    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+    `<< /Length ${Buffer.byteLength(stream)} >>\nstream\n${stream}endstream`,
+  ];
+  let pdf = "%PDF-1.4\n";
+  const offsets = objects.map((object, index) => {
+    const offset = Buffer.byteLength(pdf);
+    pdf += `${index + 1} 0 obj\n${object}\nendobj\n`;
+    return offset;
+  });
+  const crossReference = Buffer.byteLength(pdf);
+  pdf += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
+  for (const offset of offsets) pdf += `${String(offset).padStart(10, "0")} 00000 n \n`;
+  return `${pdf}trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${crossReference}\n%%EOF\n`;
+}
+
+test("PDF extraction reads text without a canvas and identifies image-only files", async () => {
+  const options = { type: "application/pdf" };
+  const readable = new File([samplePdf("Spatial data engineering")], "cv.pdf", options);
+  assert.equal((await extract(readable)).text, "Spatial data engineering");
+  const blank = new File([samplePdf("")], "scan.pdf", options);
+  await assert.rejects(extract(blank), /no selectable text/);
+  await assert.rejects(extract(new File(["%PDF-1.4\nBroken content"], "broken.pdf", options)), /Could not open this PDF/);
+});

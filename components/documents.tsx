@@ -14,6 +14,7 @@ export function Documents({ data, kind }: { data: Workspace; kind: Entry["kind"]
   const cloudJob = kind === "job";
   const [edit, setEdit] = useState<Entry | null>(null);
   const [busy, setBusy] = useState(false);
+  const [uploadError, setUploadError] = useState("");
   const label = cloudJob ? "job description" : "CV";
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -25,6 +26,7 @@ export function Documents({ data, kind }: { data: Workspace; kind: Entry["kind"]
       form.set("title", file.name.replace(/\.[^.]+$/, "").slice(0, 160) || "My CV");
     }
     if (edit) form.set("replace", edit.id);
+    setUploadError("");
     setBusy(true);
     try {
       const { profileImport } = await data.saveDocument(form);
@@ -35,7 +37,7 @@ export function Documents({ data, kind }: { data: Workspace; kind: Entry["kind"]
       else if (profileImport === "no_changes") toast.success("CV saved. No new professional details found.");
       else toast.success(`${label} saved`);
     }
-    catch (error) { toast.error(error instanceof Error ? error.message : "Could not save the document."); }
+    catch (error) { setUploadError(error instanceof Error ? error.message : "Could not save the document."); }
     finally { setBusy(false); }
   }
   const rows = data.entries.filter(row => row.kind === kind);
@@ -45,8 +47,9 @@ export function Documents({ data, kind }: { data: Workspace; kind: Entry["kind"]
       <form className="stack" onSubmit={submit} key={edit?.id ?? "new"}>
         <label>{cloudJob ? "Position" : "Version name"}<input name="title" maxLength={160} defaultValue={edit?.title ?? ""} required={cloudJob} placeholder={cloudJob ? "Geospatial Engineer" : "CV — data and analytics"}/></label>
         {cloudJob && <><label>Organization<input name="organization" maxLength={120} defaultValue={edit?.organization ?? ""} placeholder="Company name"/></label><label>CV for comparison<select name="resume"><option value="">Use any relevant saved CV</option>{data.entries.filter(row => row.kind === "resume").map(row => <option key={row.id} value={row.id}>{row.title}</option>)}</select></label></>}
-        <label>Document file<input type="file" name="file" accept={data.demo ? ".txt" : ".pdf,.docx,.txt"}/></label>
+        <label>Document file<input type="file" name="file" accept={data.demo ? ".txt" : ".pdf,.docx,.txt"} onChange={() => setUploadError("")}/></label>
         <label>{label} text<textarea name="text" rows={6} maxLength={55000} defaultValue={edit?.text ?? ""} placeholder={cloudJob ? "Paste the responsibilities and qualifications…" : "Paste your experience and qualifications…"}/></label>
+        {uploadError && <p role="alert" className="document-error">{uploadError}</p>}
         <div className="actions"><Button type="submit" disabled={busy}>{busy ? "Processing…" : cloudJob ? "Analyze and save" : "Save CV"}</Button>{edit && <Button type="button" variant="secondary" onClick={() => setEdit(null)}>Cancel edit</Button>}</div>
       </form>
     </section><section className="card stack"><div className="card-title"><div><h2>{cloudJob ? "Saved applications" : "Saved CV versions"}</h2><p>{rows.length} saved</p></div>{cloudJob ? <BriefcaseBusiness size={20}/> : <FileText size={20}/>}</div>

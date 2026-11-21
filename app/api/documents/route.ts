@@ -1,5 +1,5 @@
 import { authenticatedClient, sameOrigin } from "@/lib/server-auth";
-import { extract } from "@/lib/extract";
+import { DocumentReadError, extract } from "@/lib/extract";
 import { api } from "@/convex/_generated/api";
 import type { GenericId } from "convex/values";
 
@@ -17,7 +17,12 @@ export async function POST(request: Request) {
     let file;
     if (selected instanceof File && selected.size) {
       await secured.client.mutation(api.store.quota, { kind: "extract" });
-      try { file = await extract(selected); } catch { return Response.json({ error: "Could not read this file. Choose a valid PDF, DOCX or TXT up to 4 MB, with extractable text." }, { status: 400 }); }
+      try {
+        file = await extract(selected);
+      } catch (error) {
+        const message = error instanceof DocumentReadError ? error.message : "Could not read this file. Re-export it or paste the document text.";
+        return Response.json({ error: message }, { status: 400 });
+      }
     }
     const result = await secured.client.action(api.intelligence.ingest, {
       title, kind, organization: String(form.get("organization") ?? "").trim(), text: file?.text ?? String(form.get("text") ?? ""),

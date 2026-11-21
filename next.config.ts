@@ -1,6 +1,6 @@
 import type { NextConfig } from "next";
 const config: NextConfig = {
-  serverExternalPackages: ["pdf-parse", "mammoth"],
+  serverExternalPackages: ["mammoth"],
   async headers() {
     return [{ source: "/api/:path*", headers: [{ key: "Cache-Control", value: "no-store" }] }, {
       source: "/:path*", headers: [
