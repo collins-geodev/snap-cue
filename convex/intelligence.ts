@@ -48,7 +48,7 @@ async function retrieve(ctx: GenericActionCtx<DataModel>, owner: string, query: 
   const ids: GenericId<"knowledgeChunks">[] = [];
   if (!resume) {
     const hits = gemini
-      ? await ctx.vectorSearch("knowledgeChunks", "by_gemini_embedding", { vector, limit: 20, filter: q => q.eq("geminiOwner", owner) })
+      ? await ctx.vectorSearch("knowledgeChunks", "by_embedding", { vector, limit: 20, filter: q => q.eq("geminiOwner", owner) })
       : await ctx.vectorSearch("knowledgeChunks", "by_embedding", { vector, limit: 20, filter: q => q.eq("owner", owner) });
     ids.push(...hits.map(hit => hit._id));
   }
@@ -56,7 +56,7 @@ async function retrieve(ctx: GenericActionCtx<DataModel>, owner: string, query: 
       if (!document) continue;
       // The selected document was checked before searching.
       const hits = gemini
-        ? await ctx.vectorSearch("knowledgeChunks", "by_gemini_embedding", { vector, limit: 4, filter: q => q.eq("geminiDocument", document) })
+        ? await ctx.vectorSearch("knowledgeChunks", "by_embedding", { vector, limit: 4, filter: q => q.eq("geminiDocument", document) })
         : await ctx.vectorSearch("knowledgeChunks", "by_embedding", { vector, limit: 4, filter: q => q.eq("document", document) });
       ids.unshift(...hits.map(hit => hit._id));
   }
