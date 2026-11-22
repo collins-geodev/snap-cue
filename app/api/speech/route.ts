@@ -15,6 +15,7 @@ export async function POST(request: Request) {
       if (consent.allowed !== true || consent.recordingAllowed !== true) return Response.json({ error: "Confirm participant permission first." }, { status: 400 });
       await secured.client.mutation(api.store.quota, { kind: "live" });
       await secured.client.mutation(api.store.consent, { retain: settings?.retainTranscript ?? false });
+      if (consent.onDevice === true) return Response.json({ ready: true });
       const upstream = await openAI("realtime/client_secrets", {
         expires_after: { anchor: "created_at", seconds: 60 },
         session: { type: "transcription", audio: { input: { transcription: { model: "gpt-live-transcribe", languages: [language], delay: "low" } } } },
