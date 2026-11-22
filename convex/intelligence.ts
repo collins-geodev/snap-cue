@@ -40,7 +40,7 @@ const budget = ref<"mutation">("store:quota");
 const practiceSkill = ref<"query">("store:practiceSkill") as FunctionReference<"query", "public", {
   owner: string; resume?: Doc; job?: Doc;
 }, string | null>;
-const useLocalPractice = () => !geminiProcessesPrivateData() && (Boolean(process.env.GEMINI_API_KEY) || !process.env.OPENAI_API_KEY);
+const shouldRunLocalPractice = () => !geminiProcessesPrivateData() && (Boolean(process.env.GEMINI_API_KEY) || !process.env.OPENAI_API_KEY);
 const selection = { resume: v.optional(v.id("documents")), job: v.optional(v.id("documents")) };
 const file = v.object({ base64: v.string(), type: v.string() });
 const ingestFields = { kind: v.union(v.literal("resume"), v.literal("job")), title: v.string(), organization: v.optional(v.string()), text: v.string(), file: v.optional(file), replace: v.optional(v.id("documents")), resume: v.optional(v.id("documents")) };
@@ -133,7 +133,7 @@ export const question = action({
     await ctx.runMutation(budget, { kind: "ai" });
     const config = setupSchema.parse(args.setup);
     if (args.previous.length > 10 || args.previous.some(item => item.length > 2000)) throw new Error("Unexpected interview history.");
-    if (useLocalPractice()) {
+    if (shouldRunLocalPractice()) {
       const skill = await ctx.runQuery(practiceSkill, { owner, resume: args.resume, job: args.job });
       return localQuestion(config, args.previous, skill ?? undefined);
     }
@@ -147,7 +147,7 @@ export const evaluate = action({
     const owner = await ownerOf(ctx);
     if (!args.answer.trim() || args.answer.length > 6000 || args.question.length > 2000) throw new Error("Check the answer length.");
     await ctx.runMutation(budget, { kind: "ai" });
-    if (useLocalPractice()) {
+    if (shouldRunLocalPractice()) {
       if (args.resume || args.job) await ctx.runQuery(getContext, { owner, ids: [], resume: args.resume, job: args.job });
       return localAssessment(args.answer);
     }
