@@ -8,6 +8,7 @@ import { categories, difficulties, setupSchema, type Setup, type Turn } from "@/
 import { PageHeading } from "./page-heading";
 import { Button } from "./ui/button";
 import { Recording } from "./recording";
+import { localAnswer, type AnswerStyle } from "@/lib/local-answer";
 import type { Selection, Workspace } from "./workspace-data";
 
 export function SourceSelect({ data, selection, choose }: { data: Workspace; selection: Selection; choose: (selection: Selection) => void }) {
@@ -93,7 +94,7 @@ export function Practice({ data }: { data: Workspace }) {
     </section>}
   </>;
 }
-type Style = "Concise" | "STAR" | "Technical";
+type Style = AnswerStyle;
 export async function streamAnswer(question: string, style: Style, expanded: boolean, selection: Selection, signal: AbortSignal, update: (text: string) => void) {
   const response = await fetch("/api/answer", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ question, style, expanded, ...selection }), signal });
   if (!response.ok || !response.body) throw new Error("Could not generate a suggestion.");
@@ -147,9 +148,16 @@ export function AnswerAssistant({ data }: { data: Workspace }) {
     setBusy(true); setSuggestion(""); setElapsed(undefined);
     try {
       if (data.demo) setSuggestion(sampleAnswer(style, expanded));
-      else await streamAnswer(question, style, expanded, selection, task.signal, setSuggestion);
+      else await streamAnswer(question, style, expanded, selection, AbortSignal.any([task.signal, AbortSignal.timeout(12_000)]), setSuggestion);
       setElapsed(Math.round(performance.now() - start));
-    } catch { if (!task.signal.aborted) toast.error("Could not generate a complete suggestion."); }
+    } catch {
+      if (!task.signal.aborted) {
+        const resume = data.entries.find(entry => entry.id === selection.resume && entry.kind === "resume");
+        const job = data.entries.find(entry => entry.id === selection.job && entry.kind === "job");
+        setSuggestion(localAnswer(question, style, expanded, resume, job));
+        setElapsed(Math.round(performance.now() - start));
+      }
+    }
     finally { if (active.current === task) setBusy(false); }
   }
   return <><PageHeading kicker="COACHING" title="Answer assistant" description="Turn an interview question into talking points grounded in your experience."/><div className="content-grid">
