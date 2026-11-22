@@ -8,6 +8,7 @@ import { chunkText, grounding, jobAnalysisSchema, assessmentSchema, setupSchema,
 import { complete as completeWithOpenAI, embed as embedWithOpenAI } from "../lib/openai";
 import { completeWithGemini, embedWithGemini, geminiEmbeddingModel, geminiProcessesPrivateData } from "../lib/gemini";
 import { matchJobLocally } from "../lib/job-matching";
+import { localAssessment, localQuestion } from "../lib/local-practice";
 import { analysis, assessment, setup, category, difficulty, profile, profileImportStatus } from "./validators";
 import { ownerOf } from "./identity";
 import { extractResumeSections, groundedResumeProfile, hasResumeDetails, resumeProfileSchema } from "../lib/resume-profile";
@@ -36,6 +37,10 @@ const getContext = ref<"query">("store:context") as FunctionReference<"query", "
   owner: string; ids: GenericId<"knowledgeChunks">[]; resume?: Doc; job?: Doc; includeResumeExcerpt?: boolean;
 }, { sources: { label: string; text: string }[]; profile: Profile | null }>;
 const budget = ref<"mutation">("store:quota");
+const practiceSkill = ref<"query">("store:practiceSkill") as FunctionReference<"query", "internal", {
+  owner: string; resume?: Doc; job?: Doc;
+}, string | null>;
+const useLocalPractice = () => !geminiProcessesPrivateData() && (Boolean(process.env.GEMINI_API_KEY) || !process.env.OPENAI_API_KEY);
 const selection = { resume: v.optional(v.id("documents")), job: v.optional(v.id("documents")) };
 const file = v.object({ base64: v.string(), type: v.string() });
 const ingestFields = { kind: v.union(v.literal("resume"), v.literal("job")), title: v.string(), organization: v.optional(v.string()), text: v.string(), file: v.optional(file), replace: v.optional(v.id("documents")), resume: v.optional(v.id("documents")) };
@@ -128,6 +133,10 @@ export const question = action({
     await ctx.runMutation(budget, { kind: "ai" });
     const config = setupSchema.parse(args.setup);
     if (args.previous.length > 10 || args.previous.some(item => item.length > 2000)) throw new Error("Unexpected interview history.");
+    if (useLocalPractice()) {
+      const skill = await ctx.runQuery(practiceSkill, { owner, resume: args.resume, job: args.job });
+      return localQuestion(config, args.previous, skill ?? undefined);
+    }
     const evidence = await retrieve(ctx, owner, `${config.role} ${config.category} ${config.organization}`, args.resume, args.job);
     return (await complete(grounding + " Ask exactly one focused interview question. Adapt to the role, category, and difficulty. Avoid repeating prior questions. Return plain text only.", { config, previous: args.previous, evidence })).trim().slice(0, 2000);
   },
@@ -138,6 +147,10 @@ export const evaluate = action({
     const owner = await ownerOf(ctx);
     if (!args.answer.trim() || args.answer.length > 6000 || args.question.length > 2000) throw new Error("Check the answer length.");
     await ctx.runMutation(budget, { kind: "ai" });
+    if (useLocalPractice()) {
+      if (args.resume || args.job) await ctx.runQuery(getContext, { owner, ids: [], resume: args.resume, job: args.job });
+      return localAssessment(args.answer);
+    }
     const evidence = await retrieve(ctx, owner, args.question, args.resume, args.job);
     return assessmentSchema.parse(JSON.parse(await complete(grounding + " Assess only what the response demonstrates. Evaluate confidence through wording, never infer emotional or personal traits. Use STAR if relevant. Return JSON: score (0–100), feedback, improvement, dimensions (accuracy, relevance, clarity, structure, communication, evidence, each 0–100).", { ...args, evidence }, true)));
   },

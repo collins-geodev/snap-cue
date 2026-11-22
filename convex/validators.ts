@@ -12,6 +12,7 @@ export const settings = v.object({
   retainTranscript: v.boolean(), notifications: v.boolean(), microphone: v.string(),
 });
 export const assessment = v.object({
+  method: v.optional(v.literal("checklist")),
   score: v.number(), feedback: v.string(), improvement: v.string(), dimensions: v.object({
     accuracy: v.number(), relevance: v.number(), clarity: v.number(), structure: v.number(), communication: v.number(), evidence: v.number(),
   }),

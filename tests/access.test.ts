@@ -188,5 +188,20 @@ test("free-tier Gemini configuration matches saved CVs without sending private t
   assert.deepEqual(report.analysis?.skills, ["Python", "PostgreSQL"]);
   assert.match(report.analysis?.strengths[0] ?? "", /Python/);
   assert.match(report.analysis?.gaps[0] ?? "", /PostgreSQL/);
+  const setup = { role: "Spatial Data Engineer", organization: "", category: "Technical", difficulty: "Intermediate", count: 10, minutes: 20 } as const;
+  const questions: string[] = [];
+  const selection = { resume: cv.id, job: report.id };
+  for (let i = 0; i < setup.count; i++) {
+    questions.push(await candidate.action(api.intelligence.question, { setup, previous: questions, ...selection }));
+  }
+  assert.equal(new Set(questions).size, setup.count);
+  assert.match(questions[0], /Python.*Spatial Data Engineer/);
+  const answer = "I used Python to validate a dataset and reduced review time.";
+  const assessment = await candidate.action(api.intelligence.evaluate, {
+    question: questions[0], answer, category: setup.category, difficulty: setup.difficulty, ...selection,
+  });
+  assert.equal(assessment.method, "checklist");
+  await candidate.mutation(api.store.saveSession, { setup, turns: [{ question: questions[0], answer, assessment }] });
+  assert.equal((await candidate.query(api.store.workspace, {})).sessions[0].turns[0].assessment.method, "checklist");
   assert.equal(fetchMock.mock.callCount(), 0);
 });

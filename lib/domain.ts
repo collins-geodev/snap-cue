@@ -9,6 +9,7 @@ export const setupSchema = z.object({
   role: z.string().trim().min(1).max(120), organization: z.string().trim().max(120),
 });
 export const assessmentSchema = z.object({
+  method: z.literal("checklist").optional(),
   score: z.number().min(0).max(100), feedback: z.string(), improvement: z.string(),
   dimensions: z.object({ accuracy: z.number().min(0).max(100), relevance: z.number().min(0).max(100), clarity: z.number().min(0).max(100), structure: z.number().min(0).max(100), communication: z.number().min(0).max(100), evidence: z.number().min(0).max(100) })
 });

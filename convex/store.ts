@@ -6,6 +6,7 @@ import { assessmentSchema, defaultProfile, defaultSettings, setupSchema, type Pr
 import { identityOf, isConfiguredOwner, ownerOf } from "./identity";
 import { recordUsage } from "./admin";
 import { mergeResumeProfile, profileFieldLimit } from "../lib/resume-profile";
+import { matchJobLocally } from "../lib/job-matching";
 
 const session = v.object({ id: v.id("interviewSessions"), created: v.number(), setup, turns: v.array(turn) });
 export const workspace = query({
@@ -153,6 +154,21 @@ export const writeDocument = internalMutation({
     return { id, profileUpdated };
   },
 });
+export const practiceSkill = internalQuery({
+  args: { owner: v.string(), resume: v.optional(v.id("documents")), job: v.optional(v.id("documents")) },
+  returns: v.union(v.string(), v.null()),
+  handler: async (ctx, { owner, resume, job }) => {
+    const cv = resume ? await ctx.db.get("documents", resume) : null;
+    const position = job ? await ctx.db.get("documents", job) : null;
+    if ((resume && (cv?.owner !== owner || cv.kind !== "resume")) ||
+        (job && (position?.owner !== owner || position.kind !== "job"))) throw new Error("Document unavailable.");
+    const jobSkills = position ? position.analysis?.skills ?? matchJobLocally(position.text, []).skills : [];
+    const cvSkills = cv ? matchJobLocally(cv.text, []).skills : [];
+    const skill = jobSkills.find(value => cvSkills.includes(value)) ?? jobSkills[0] ?? cvSkills[0];
+    return skill?.slice(0, 120) || null;
+  },
+});
+
 export const matchingResumes = internalQuery({
   args: { owner: v.string(), resume: v.optional(v.id("documents")) },
   returns: v.array(v.string()),
