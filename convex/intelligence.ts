@@ -37,7 +37,7 @@ const getContext = ref<"query">("store:context") as FunctionReference<"query", "
   owner: string; ids: GenericId<"knowledgeChunks">[]; resume?: Doc; job?: Doc; includeResumeExcerpt?: boolean;
 }, { sources: { label: string; text: string }[]; profile: Profile | null }>;
 const budget = ref<"mutation">("store:quota");
-const practiceSkill = ref<"query">("store:practiceSkill") as FunctionReference<"query", "internal", {
+const practiceSkill = ref<"query">("store:practiceSkill") as FunctionReference<"query", "public", {
   owner: string; resume?: Doc; job?: Doc;
 }, string | null>;
 const useLocalPractice = () => !geminiProcessesPrivateData() && (Boolean(process.env.GEMINI_API_KEY) || !process.env.OPENAI_API_KEY);
