@@ -161,3 +161,32 @@ test("a revoked AI key still saves a CV and imports its labeled details", async 
   assert.equal(evidence.sources[0].label, "[RESUME EXCERPT] Workspace CV");
   assert.match(evidence.sources[0].text, /QGIS, Python/);
 });
+
+test("free-tier Gemini configuration matches saved CVs without sending private text", async t => {
+  const previousKey = process.env.GEMINI_API_KEY;
+  const previousPaid = process.env.GEMINI_PAID_DATA_PROCESSING;
+  process.env.GEMINI_API_KEY = "test-free-key";
+  delete process.env.GEMINI_PAID_DATA_PROCESSING;
+  const previousFetch = globalThis.fetch;
+  const fetchMock = t.mock.fn(async () => { throw new Error("Unexpected external request"); });
+  globalThis.fetch = fetchMock;
+  t.after(() => {
+    globalThis.fetch = previousFetch;
+    if (previousKey === undefined) delete process.env.GEMINI_API_KEY;
+    else process.env.GEMINI_API_KEY = previousKey;
+    if (previousPaid !== undefined) process.env.GEMINI_PAID_DATA_PROCESSING = previousPaid;
+  });
+  const backend = convexTest(schema, modules);
+  const candidate = backend.withIdentity({ subject: "private", tokenIdentifier: "test|private" });
+  const cv = await candidate.action(api.intelligence.ingest, {
+    kind: "resume", title: "Sample CV", text: "Skills: Python, QGIS",
+  });
+  const report = await candidate.action(api.intelligence.ingest, {
+    kind: "job", title: "GIS analyst", text: "Requires Python and PostgreSQL.", resume: cv.id,
+  });
+  assert.equal(cv.profileImport, "updated");
+  assert.deepEqual(report.analysis?.skills, ["Python", "PostgreSQL"]);
+  assert.match(report.analysis?.strengths[0] ?? "", /Python/);
+  assert.match(report.analysis?.gaps[0] ?? "", /PostgreSQL/);
+  assert.equal(fetchMock.mock.callCount(), 0);
+});

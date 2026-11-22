@@ -24,7 +24,7 @@ const env = { ...process.env, NEXT_PUBLIC_SNAPCUE_MODE: key ? "cloud" : "demo" }
 delete env.NEXT_PUBLIC_CONVEX_URL;
 const next = require.resolve("next/dist/bin/next");
 const convex = join(dirname(require.resolve("convex/package.json")), "bin/main.js");
-const cloudVariables = ["NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY", "CLERK_SECRET_KEY", "OPENAI_API_KEY"];
+const cloudVariables = ["NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY", "CLERK_SECRET_KEY"];
 const missing = cloudVariables.filter(name => !env[name]?.trim());
 if (key && missing.length) {
   console.error(`Missing Vercel ${stage} environment variables: ${missing.join(", ")}`);
@@ -33,8 +33,9 @@ if (key && missing.length) {
 if (production) {
   const check = spawnSync(process.execPath, [convex, "env", "list", "--names-only"], { env, encoding: "utf8" });
   const names = check.stdout?.trim().split(/\s+/);
-  if (check.status !== 0 || !names?.includes("CLERK_JWT_ISSUER_DOMAIN") || !names?.includes("OPENAI_API_KEY")) {
-    console.error("Configure Clerk issuer and OpenAI settings on production Convex before deploying.");
+  if (check.status !== 0 || !names?.includes("CLERK_JWT_ISSUER_DOMAIN") ||
+      !(names.includes("GEMINI_API_KEY") || names.includes("OPENAI_API_KEY"))) {
+    console.error("Configure the Clerk issuer and an AI provider on production Convex before deploying.");
     process.exit(1);
   }
 }

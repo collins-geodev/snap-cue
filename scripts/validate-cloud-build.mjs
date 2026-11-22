@@ -10,8 +10,8 @@ if (!url || (stage === "production" && url !== productionUrl) || (stage === "pre
   console.error("Convex deployment URL does not match the Vercel environment.");
   process.exit(1);
 }
-if (!process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY || !process.env.CLERK_SECRET_KEY || !process.env.OPENAI_API_KEY) {
-  console.error("Set the Clerk and OpenAI server environment for this Vercel target.");
+if (!process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY || !process.env.CLERK_SECRET_KEY) {
+  console.error("Set the Clerk server environment for this Vercel target.");
   process.exit(1);
 }
 const result = spawnSync(process.execPath, [require.resolve("next/dist/bin/next"), "build", "--webpack"], { stdio: "inherit" });

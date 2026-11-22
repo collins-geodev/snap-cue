@@ -49,7 +49,7 @@ For a signed-in development environment, copy [`.env.example`](.env.example) to 
 - **Next.js and React** render the public landing page and authenticated studio. Studio tools load by section, and charts load when there is data to display.
 - **Clerk** provides sign-up, sessions, password management, and account images. The production application uses a same-origin Clerk proxy on its Vercel domain.
 - **Convex** stores workspace profiles, documents, practice history, settings, and owner-authorized aggregate usage. User-scoped queries and mutations check the authenticated identity.
-- **OpenAI** powers coaching, embeddings, and recorded and live transcription. Cloud requests run server-side with per-account usage limits.
+- **SnapCue** can import CV sections and compare CV skills with job descriptions on its server. A paid **Google Gemini** project can power semantic matching and text coaching when enabled in Convex. Optional **OpenAI** access powers recorded and live transcription. Cloud requests run server-side with per-account usage limits.
 
 See [Architecture](ARCHITECTURE.md) for service boundaries, data handling, model choices, and operational limitations.
 
@@ -68,4 +68,4 @@ On Windows with Microsoft Edge installed, set `PLAYWRIGHT_CHANNEL=msedge` to use
 
 ## Deployment
 
-Vercel hosts the web application and deploys Convex functions during the cloud build. Use separate development and production credentials. Preview deployments without a Convex deploy key run in demo mode. Production requires the matching Convex deploy key, Clerk credentials, and OpenAI access. Follow the [deployment runbook](DEPLOYMENT.md) to configure a release, verify sign-in, and grant owner access.
+Vercel hosts the web application and deploys Convex functions during the cloud build. Use separate development and production credentials. Preview deployments without a Convex deploy key run in demo mode. Production requires the matching Convex deploy key, Clerk credentials, and an AI provider configured in Convex. Follow the [deployment runbook](DEPLOYMENT.md) to configure a release, verify sign-in, and grant owner access.

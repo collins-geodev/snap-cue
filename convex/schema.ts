@@ -12,9 +12,12 @@ export default defineSchema({
   }).index("by_owner", ["owner"]),
   knowledgeChunks: defineTable({
     owner: v.string(), document: v.id("documents"), text: v.string(), embedding: v.array(v.float64()),
-    model: v.literal("text-embedding-3-small"),
+    model: v.union(v.literal("text-embedding-3-small"), v.literal("gemini-embedding-001")),
+    geminiOwner: v.optional(v.string()), geminiDocument: v.optional(v.id("documents")),
   }).index("by_document", ["document"]).vectorIndex("by_embedding", {
     vectorField: "embedding", dimensions: 1536, filterFields: ["owner", "document"],
+  }).vectorIndex("by_gemini_embedding", {
+    vectorField: "embedding", dimensions: 1536, filterFields: ["geminiOwner", "geminiDocument"],
   }),
   interviewSessions: defineTable({ owner: v.string(), setup, turns: v.array(turn) }).index("by_owner", ["owner"]),
   consentRecords: defineTable({ owner: v.string(), retain: v.boolean(), noticeVersion: v.literal("1") }).index("by_owner", ["owner"]),

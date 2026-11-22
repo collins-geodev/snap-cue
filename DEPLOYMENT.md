@@ -9,7 +9,7 @@
 ## Existing Convex development deployment
 
 1. Check the Convex dashboard to confirm ownership and compare the development and production deployment names under the same project. Reuse the existing project.
-2. Create a Clerk JWT template named `convex`. Use a development Clerk application for local development and set its issuer as `CLERK_JWT_ISSUER_DOMAIN` in the supplied development deployment. Set `OPENAI_API_KEY` in the same Convex environment.
+2. Create a Clerk JWT template named `convex`. Use a development Clerk application for local development and set its issuer as `CLERK_JWT_ISSUER_DOMAIN` in the supplied development deployment. Set `GEMINI_API_KEY` in the same Convex environment for text coaching and CV matching.
 3. Copy `.env.example` to `.env.local`, set `NEXT_PUBLIC_SNAPCUE_MODE=cloud`, and supply the Clerk development keys and server-side OpenAI key. Use `CONVEX_DEPLOYMENT=dev:agreeable-mule-700` and the development URL.
 4. Inspect the existing development deployment before applying the app’s schema. Once credentials and settings are ready, use `npx convex dev --once`, followed by `npm run dev`.
 
@@ -24,9 +24,11 @@ Before triggering the production deploy, get explicit approval, check the existi
 | `CONVEX_DEPLOY_KEY` | Vercel production deploy key for `adventurous-ferret-881`. Preview uses only a separate project preview key. |
 | `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY` | Vercel, scoped by environment |
 | `CLERK_JWT_ISSUER_DOMAIN` | Convex for each cloud deployment |
-| `OPENAI_API_KEY` | Convex and Vercel, scoped by environment |
+| `GEMINI_API_KEY` | Convex, scoped by environment. Without paid processing enabled, CV import and job matching run inside SnapCue. |
+| `GEMINI_PAID_DATA_PROCESSING` | Optional Convex flag. Set to `true` only with an active Gemini billing account and appropriate data-handling terms for sending user content. |
+| `OPENAI_API_KEY` | Optional on Vercel for cloud transcription and OpenAI streaming. Optional in Convex for use as the text provider when Gemini is absent. |
 
-A preview key can create an isolated preview backend. Configure auth and OpenAI for that backend before running a cloud smoke test. Use a verified domain that Clerk accepts for production. Never paste secrets into GitHub files or commit `.env.local`.
+A preview key can create an isolated preview backend. Configure auth and the AI provider for that backend before running a cloud smoke test. Use a verified domain that Clerk accepts for production. Never paste secrets into GitHub files or commit `.env.local`.
 
 After deploying, verify the production URL, HTTPS, account recovery and sign-in, deployment isolation, native audio behavior, and the signed-in AI workflows. Promote or release only after those checks pass.
 

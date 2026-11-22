@@ -120,8 +120,9 @@ export const writeDocument = internalMutation({
     organization: v.optional(v.string()), text: v.string(), storageId: v.optional(v.id("_storage")),
     analysis: v.optional(analysis), replace: v.optional(v.id("documents")), extractedProfile: v.optional(resumeProfile),
     chunks: v.array(v.object({ text: v.string(), embedding: v.array(v.float64()) })),
+    embeddingModel: v.optional(v.literal("gemini-embedding-001")),
   }, returns: v.object({ id: v.id("documents"), profileUpdated: v.boolean() }),
-  handler: async (ctx, { replace, chunks, extractedProfile, ...document }) => {
+  handler: async (ctx, { replace, chunks, extractedProfile, embeddingModel, ...document }) => {
     let storageId = document.storageId;
     if (replace) {
       const old = await ctx.db.get("documents", replace);
@@ -132,7 +133,12 @@ export const writeDocument = internalMutation({
     const rows = await ctx.db.query("documents").withIndex("by_owner", q => q.eq("owner", document.owner)).take(30);
     if (rows.length >= 30) throw new Error("Delete an existing document to upload another.");
     const id = await ctx.db.insert("documents", { ...document, storageId });
-    for (const chunk of chunks) await ctx.db.insert("knowledgeChunks", { ...chunk, owner: document.owner, document: id, model: "text-embedding-3-small" });
+    for (const chunk of chunks) {
+      await ctx.db.insert("knowledgeChunks", {
+        ...chunk, owner: document.owner, document: id, model: embeddingModel ?? "text-embedding-3-small",
+        ...(embeddingModel && { geminiOwner: document.owner, geminiDocument: id }),
+      });
+    }
     let profileUpdated = false;
     if (document.kind === "resume" && extractedProfile) {
       const row = await ctx.db.query("profiles").withIndex("by_owner", q => q.eq("owner", document.owner)).unique();
@@ -147,6 +153,20 @@ export const writeDocument = internalMutation({
     return { id, profileUpdated };
   },
 });
+export const matchingResumes = internalQuery({
+  args: { owner: v.string(), resume: v.optional(v.id("documents")) },
+  returns: v.array(v.string()),
+  handler: async (ctx, { owner, resume }) => {
+    if (resume) {
+      const document = await ctx.db.get("documents", resume);
+      if (!document || document.owner !== owner || document.kind !== "resume") throw new Error("Document unavailable.");
+      return [document.text];
+    }
+    const rows = await ctx.db.query("documents").withIndex("by_owner", q => q.eq("owner", owner)).take(30);
+    return rows.filter(document => document.kind === "resume").map(document => document.text);
+  },
+});
+
 export const context = internalQuery({
   args: { owner: v.string(), ids: v.array(v.id("knowledgeChunks")), resume: v.optional(v.id("documents")), job: v.optional(v.id("documents")), includeResumeExcerpt: v.optional(v.boolean()) },
   returns: v.object({ sources: v.array(v.object({ label: v.string(), text: v.string() })), profile: v.union(profile, v.null()) }),
