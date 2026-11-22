@@ -4,8 +4,8 @@ import { Mic, Square } from "lucide-react";
 import { Button } from "./ui/button";
 import { toast } from "sonner";
 
-export function Recording({ demo, microphone, onText, disabled }: { demo: boolean; microphone: string; onText: (text: string) => void; disabled?: boolean }) {
-  const [state, setState] = useState<"idle" | "starting" | "recording" | "sending">("idle");
+export function Recording({ demo, microphone, language, onText, disabled }: { demo: boolean; microphone: string; language: string; onText: (text: string) => void; disabled?: boolean }) {
+  const [state, setState] = useState<"idle" | "starting" | "recording" | "loading" | "transcribing">("idle");
   const [latency, setLatency] = useState<number>();
   const recorder = useRef<MediaRecorder | null>(null);
   const tracks = useRef<MediaStream | null>(null);
@@ -18,11 +18,12 @@ export function Recording({ demo, microphone, onText, disabled }: { demo: boolea
       toast.info("Sample transcript inserted");
       return;
     }
+    setLatency(undefined);
     setState("starting");
     const abort = new AbortController();
     task.current = abort;
     try {
-      if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) throw new Error("Microphone recording requires a supported browser and secure connection.");
+      if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder || !window.OfflineAudioContext || !window.Worker) throw new Error("Audio transcription requires a supported browser. You can still type your answer.");
       const stream = await navigator.mediaDevices.getUserMedia({ audio: microphone ? { deviceId: { exact: microphone } } : true });
       if (abort.signal.aborted) { stream.getTracks().forEach(track => track.stop()); return; }
       tracks.current = stream;
@@ -35,17 +36,16 @@ export function Recording({ demo, microphone, onText, disabled }: { demo: boolea
         if (timer.current) clearTimeout(timer.current);
         stream.getTracks().forEach(track => track.stop());
         if (abort.signal.aborted) return;
-        setState("sending");
+        setState("loading");
         try {
+          const start = performance.now();
           const audio = new Blob(parts, { type: clip.mimeType });
-          const form = new FormData();
-          const ext = clip.mimeType.includes("mp4") ? "mp4" : clip.mimeType.includes("ogg") ? "ogg" : "webm";
-          form.set("file", audio, "recording." + ext);
-          const response = await fetch("/api/speech", { method: "POST", body: form, signal: abort.signal });
-          const result = await response.json();
-          if (!response.ok || !result.text?.trim()) throw new Error(result.error || "No speech was detected.");
-          setLatency(result.latency);
-          onText(result.text);
+          if (!audio.size) throw new Error("No audio was captured. Try recording again.");
+          const { transcribeRecording } = await import("@/lib/browser-transcription");
+          const text = await transcribeRecording(audio, language, abort.signal, () => setState("transcribing"));
+          if (!text) throw new Error("No speech was detected. Try speaking closer to the microphone.");
+          setLatency(Math.round(performance.now() - start));
+          onText(text);
         } catch (error) {
           if (!abort.signal.aborted) toast.error(error instanceof Error ? error.message : "Could not transcribe the clip.");
         } finally { if (!abort.signal.aborted) setState("idle"); }
@@ -61,5 +61,5 @@ export function Recording({ demo, microphone, onText, disabled }: { demo: boolea
       }
     }
   }
-  return <div className="actions"><Button type="button" variant={state === "recording" ? "danger" : "secondary"} disabled={disabled || state === "starting" || state === "sending"} onClick={() => state === "recording" ? recorder.current?.stop() : void start()}>{state === "recording" ? <Square size={16}/> : <Mic size={16}/>} {demo ? "Insert sample transcript" : { idle: "Record audio", starting: "Requesting microphone…", recording: "Stop recording", sending: "Transcribing…" }[state]}</Button>{latency !== undefined && <small className="muted">Transcribed in {latency} ms</small>}</div>;
+  return <div className="actions"><Button type="button" variant={state === "recording" ? "danger" : "secondary"} disabled={disabled || state === "starting" || state === "loading" || state === "transcribing"} onClick={() => state === "recording" ? recorder.current?.stop() : void start()}>{state === "recording" ? <Square size={16}/> : <Mic size={16}/>} {demo ? "Insert sample transcript" : { idle: "Record audio", starting: "Requesting microphone…", recording: "Stop recording", loading: "Preparing speech recognition…", transcribing: "Transcribing on this device…" }[state]}</Button>{!demo && <small className="muted" role="status">{latency !== undefined ? `Transcribed on this device in ${(latency / 1000).toFixed(1)} s` : "The first recording may take longer while the speech model downloads."}</small>}</div>;
 }

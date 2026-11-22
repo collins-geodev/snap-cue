@@ -49,7 +49,7 @@ For a signed-in development environment, copy [`.env.example`](.env.example) to 
 - **Next.js and React** render the public landing page and authenticated studio. Studio tools load by section, and charts load when there is data to display.
 - **Clerk** provides sign-up, sessions, password management, and account images. The production application uses a same-origin Clerk proxy on its Vercel domain.
 - **Convex** stores workspace profiles, documents, practice history, settings, and owner-authorized aggregate usage. User-scoped queries and mutations check the authenticated identity.
-- **SnapCue** can import CV sections and compare CV skills with job descriptions on its server. A paid **Google Gemini** project can power semantic matching and text coaching when enabled in Convex. Optional **OpenAI** access powers recorded and live transcription. Cloud requests run server-side with per-account usage limits.
+- **SnapCue** can import CV sections and compare CV skills with job descriptions on its server. A paid **Google Gemini** project can power semantic matching and text coaching when enabled in Convex. Recorded answers use on-device Whisper transcription, with a speech model download on first use. Optional **OpenAI** access powers live transcription. Cloud requests run server-side with per-account usage limits.
 
 See [Architecture](ARCHITECTURE.md) for service boundaries, data handling, model choices, and operational limitations.
 
